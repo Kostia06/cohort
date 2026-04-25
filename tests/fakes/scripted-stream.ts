@@ -14,5 +14,5 @@ export function scriptedStream(scripts: AnthropicStreamEvent[][]): AIGatewayClie
       }
     },
     get calls() { return calls; }
-  } as any;
+  };
 }

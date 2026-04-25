@@ -8,5 +8,5 @@ export function createSseCollector(): SseWriter & { events: SseEvent[]; closed: 
     close() { closed = true; },
     get events() { return events; },
     get closed() { return closed; }
-  } as any;
+  };
 }
