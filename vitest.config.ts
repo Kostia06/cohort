@@ -1,0 +1,16 @@
+import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
+
+export default defineWorkersConfig({
+  test: {
+    poolOptions: {
+      workers: {
+        wrangler: { configPath: './wrangler.toml' },
+        miniflare: {
+          compatibilityFlags: ['nodejs_compat'],
+          d1Databases: ['DB'],
+          durableObjects: { USER_AGENT_DO: 'UserAgentDO' }
+        }
+      }
+    }
+  }
+});
