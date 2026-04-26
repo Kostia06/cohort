@@ -8,10 +8,14 @@ export function createSseStreamWriter(): { writer: SseWriter; response: Response
   const sse: SseWriter = {
     emit(event: SseEvent) {
       const frame = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
-      writer.write(encoder.encode(frame)).catch(() => {});
+      writer.write(encoder.encode(frame)).catch((err) => {
+        console.warn('[sse] write failed (client likely disconnected)', err);
+      });
     },
     close() {
-      writer.close().catch(() => {});
+      writer.close().catch((err) => {
+        console.warn('[sse] close failed', err);
+      });
     }
   };
 
