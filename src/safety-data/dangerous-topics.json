@@ -1,0 +1,25 @@
+{
+  "patterns": [
+    {
+      "id": "medication_dosage",
+      "regex": "(?i)(should i|can i|is it ok to)\\s+take\\s+\\d+\\s*(mg|mcg|g|ml)",
+      "redirect": "That's a medication dosing question — please ask your pharmacist or prescribing physician. I can help with training, nutrition, sleep, and recovery questions instead."
+    },
+    {
+      "id": "drug_interaction",
+      "regex": "(?i)\\b(interact|interaction)\\b.*\\b(with|and)\\b.*(medication|drug|pill)",
+      "redirect": "Drug interaction questions need a pharmacist or your doctor. I can help with training, nutrition, sleep, and recovery questions."
+    },
+    {
+      "id": "self_diagnosis",
+      "regex": "(?i)(do i have|am i (suffering from|developing))\\s+(\\w+\\s+){0,2}(diabetes|cancer|adhd|depression|anxiety|hypertension|thyroid|deficiency)(?!\\s+under\\b|\\s+managed\\b|\\s+controlled\\b|\\s+under\\s+control)",
+      "redirect": "I can't help with diagnosis. Please talk to a clinician. I can help with training, nutrition, sleep, and recovery questions."
+    },
+    {
+      "id": "low_calorie_floor",
+      "regex": "(?i)(should i (cut|drop) to|target|hit)\\s+(?<kcal>\\d{3,4})\\s*(kcal|cal|calories)",
+      "kcalMaxFloor": 1200,
+      "redirect": "Sustained intakes below 1200 kcal aren't appropriate without a registered dietitian's supervision. Want to talk about a sustainable cut instead?"
+    }
+  ]
+}

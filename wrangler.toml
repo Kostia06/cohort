@@ -1,0 +1,20 @@
+name = "cohort-api"
+main = "src/api/worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cohort"
+database_id = "00000000-0000-0000-0000-000000000001"
+
+[[durable_objects.bindings]]
+name = "USER_AGENT_DO"
+class_name = "UserAgentDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["UserAgentDO"]
+
+[vars]
+AI_GATEWAY_URL = "https://gateway.ai.cloudflare.com/v1/REPLACE_ACCT/REPLACE_GW/anthropic"
