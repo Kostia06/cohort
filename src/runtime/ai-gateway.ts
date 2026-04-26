@@ -1,4 +1,4 @@
-import type { AIGatewayClient, AnthropicStreamEvent, StreamMessageRequest } from '../types';
+import type { AIGatewayClient, AnthropicStreamEvent, NonStreamMessageRequest, NonStreamMessageResult, StreamMessageRequest } from '../types';
 
 export interface AIGatewayConfig {
   url: string;
@@ -36,6 +36,43 @@ export function createAIGatewayClient(cfg: AIGatewayConfig): AIGatewayClient {
         throw new Error(`AI Gateway ${resp.status}: ${errText}`);
       }
       yield* parseAnthropicSse(resp.body);
+    },
+
+    async call(req: NonStreamMessageRequest): Promise<NonStreamMessageResult> {
+      const body = {
+        model: req.model,
+        system: req.system,
+        messages: req.messages,
+        max_tokens: req.maxTokens,
+        stream: false
+      };
+      const resp = await fetchImpl(`${cfg.url}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': cfg.apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify(body),
+        signal: req.signal
+      });
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        throw new Error(`AI Gateway ${resp.status}: ${errText}`);
+      }
+      const data = await resp.json() as {
+        content: Array<{ type: 'text'; text: string } | { type: string }>;
+        usage: { input_tokens: number; output_tokens: number };
+      };
+      const text = data.content
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map((b) => b.text)
+        .join('');
+      return {
+        text,
+        tokensIn: data.usage?.input_tokens ?? 0,
+        tokensOut: data.usage?.output_tokens ?? 0
+      };
     }
   };
 }
