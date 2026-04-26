@@ -54,13 +54,20 @@ export async function postReview(
 ): Promise<{ ok: boolean; corrigendum?: string }> {
   if (!assembled.trim()) return { ok: true };
   try {
-    const result = await ai.call({
-      model: 'claude-haiku-4-5-20251001',
-      system: POSTREVIEW_SYSTEM,
-      messages: [{ role: 'user', content: `Review this assistant response:\n\n${assembled}` }],
-      maxTokens: 500,
-      signal: new AbortController().signal
-    });
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), 10_000);
+    let result;
+    try {
+      result = await ai.call({
+        model: 'claude-haiku-4-5-20251001',
+        system: POSTREVIEW_SYSTEM,
+        messages: [{ role: 'user', content: `Review this assistant response:\n\n${assembled}` }],
+        maxTokens: 500,
+        signal: ac.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     const cleaned = result.text.trim().replace(/^```json\s*|\s*```$/g, '');
     const parsed = JSON.parse(cleaned) as { ok: boolean; corrigendum?: string };
     if (parsed.ok === true) return { ok: true };

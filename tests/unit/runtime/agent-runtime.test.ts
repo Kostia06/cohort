@@ -149,6 +149,7 @@ describe('runTurn', () => {
     }, deps);
 
     expect(r.status).toBe('cap_exceeded');
+    expect(r.text).toContain('cap');
     expect(deps.ai.calls.length).toBe(0);
     expect(collector.events.some((e) =>
       e.type === 'text_delta' && (e.data as { chunk: string }).chunk.includes('cap')

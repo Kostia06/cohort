@@ -42,8 +42,8 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
         db: deps.db, turnId, threadId: input.threadId, actor: 'user',
         userText: input.message ?? null, idempotencyKey: input.idempotencyKey, now
       });
+      const message = `You've hit today's usage cap (${cap}¢). Resets in 24h.`;
       if (!inserted.replay) {
-        const message = `You've hit today's usage cap (${cap}¢). Resets in 24h.`;
         input.stream?.emit({ type: 'turn_started', data: { turn_id: inserted.turnId, ordinal: inserted.ordinal } });
         input.stream?.emit({ type: 'text_delta', data: { chunk: message } });
         await finalizeChatTurn({
@@ -53,7 +53,7 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
         input.stream?.emit({ type: 'turn_complete', data: { turn_id: inserted.turnId, full_text: message, cost_usd: 0 } });
         input.stream?.close();
       }
-      return { turnId: inserted.turnId, status: 'cap_exceeded', text: '', costUsd: 0 };
+      return { turnId: inserted.turnId, status: 'cap_exceeded', text: message, costUsd: 0 };
     }
   }
 
