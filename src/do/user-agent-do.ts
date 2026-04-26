@@ -11,7 +11,6 @@ export class UserAgentDO {
   state: DurableObjectState;
   env: Env;
   currentTurn: { abortController: AbortController; turnId: string } | null = null;
-  private cachedUserId: string | null = null;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -36,19 +35,27 @@ export class UserAgentDO {
   }
 
   async alarm(): Promise<void> {
-    await this.handleRunBatch().catch((err) => console.error('[alarm] batch run failed:', err));
+    try {
+      const resp = await this.handleRunBatch();
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => '');
+        console.warn(`[alarm] batch returned non-OK: ${resp.status} ${body}`);
+      }
+    } catch (err) {
+      console.error('[alarm] batch run failed:', err);
+    }
   }
 
-  private getUserId(): string | null {
-    return this.cachedUserId;
+  private async getUserId(): Promise<string | null> {
+    return (await this.state.storage.get<string>('user_id')) ?? null;
   }
 
-  private setUserId(userId: string): void {
-    this.cachedUserId = userId;
+  private async setUserId(userId: string): Promise<void> {
+    await this.state.storage.put('user_id', userId);
   }
 
   private async handleRunBatch(): Promise<Response> {
-    const userId = this.getUserId();
+    const userId = await this.getUserId();
     if (!userId) {
       return Response.json({ ok: false, reason: 'no user_id stored — chat at least once first' }, { status: 400 });
     }
@@ -133,7 +140,7 @@ export class UserAgentDO {
       clock: () => Date.now()
     };
 
-    this.setUserId(userId);
+    await this.setUserId(userId);
     this.state.waitUntil(
       runTurn(
         { userId, threadId, actor: 'user', message: body.message, stream: writer, signal: ac.signal, idempotencyKey, turnId },

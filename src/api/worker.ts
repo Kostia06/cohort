@@ -21,8 +21,11 @@ export default {
       return stub.fetch(new Request('https://do/cancel', req));
     }
     if (req.method === 'POST' && url.pathname.startsWith('/v1/run-batch/')) {
-      const userId = req.headers.get('X-User-Id');
-      if (!userId) return new Response('missing X-User-Id', { status: 401 });
+      const headerUserId = req.headers.get('X-User-Id');
+      if (!headerUserId) return new Response('missing X-User-Id', { status: 401 });
+      const pathUserId = url.pathname.slice('/v1/run-batch/'.length);
+      if (pathUserId !== headerUserId) return new Response('user_id mismatch', { status: 403 });
+      const userId = headerUserId;
       const threadId = `batch-${new Date().toISOString().slice(0, 10)}`;
       await env.DB.prepare(
         `INSERT INTO chat_threads (thread_id, user_id, kind, created_at) VALUES (?, ?, 'batch', ?) ON CONFLICT(thread_id) DO NOTHING`
