@@ -9,7 +9,7 @@ const SYSTEM_PROMPT_USER = `You are Cohort, a health and training coach. You hav
 const SYSTEM_PROMPT_BATCH = `You are Cohort generating tomorrow's plan. Read the user's current state via tools, then propose a session and meals using propose_workout / propose_meals.`;
 
 export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<TurnResult> {
-  const turnId = ulid();
+  const turnId = input.turnId ?? ulid();
   const now = deps.clock();
 
   if (input.actor === 'user') {

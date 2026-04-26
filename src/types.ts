@@ -21,6 +21,7 @@ export interface TurnInput {
   stream: SseWriter | null;
   signal: AbortSignal;
   idempotencyKey?: string;
+  turnId?: string;  // optional pre-allocated id; runTurn generates one if absent
 }
 
 export interface TurnResult {

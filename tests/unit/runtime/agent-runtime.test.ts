@@ -44,6 +44,29 @@ describe('runTurn', () => {
     expect(row).toEqual({ status: 'complete', text: 'Hello!' });
   });
 
+  it('uses caller-supplied turnId when provided', async () => {
+    const script: AnthropicStreamEvent[] = [
+      { type: 'message_start', usage: { input_tokens: 1 } },
+      { type: 'content_block_start', index: 0, block: { type: 'text' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'ok' } },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', stop_reason: 'end_turn', usage: { output_tokens: 1 } },
+      { type: 'message_stop' }
+    ];
+    const deps = makeFakes({ db: env.DB, scripts: [script], tools: [getUserProfileTool] });
+    const collector = createSseCollector();
+    const r = await runTurn({
+      userId: 'u1',
+      threadId: 'th1',
+      actor: 'user',
+      message: 'hi',
+      stream: collector,
+      signal: new AbortController().signal,
+      turnId: 'caller-supplied-id'
+    }, deps);
+    expect(r.turnId).toBe('caller-supplied-id');
+  });
+
   it('blocks via preflight and persists with status preflight_blocked', async () => {
     const deps = makeFakes({ db: env.DB, scripts: [], tools: [] });
     const collector = createSseCollector();

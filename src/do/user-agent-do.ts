@@ -1,3 +1,4 @@
+import { ulid } from 'ulid';
 import type { Env } from '../types';
 import { createSseStreamWriter } from '../runtime/sse';
 import { createAIGatewayClient } from '../runtime/ai-gateway';
@@ -43,7 +44,8 @@ export class UserAgentDO {
 
     const idempotencyKey = req.headers.get('Idempotency-Key') ?? undefined;
     const ac = new AbortController();
-    const turnHandle = { abortController: ac, turnId: '' };
+    const turnId = ulid();
+    const turnHandle = { abortController: ac, turnId };
     this.currentTurn = turnHandle;
     req.signal.addEventListener('abort', () => ac.abort(), { once: true });
 
@@ -61,10 +63,10 @@ export class UserAgentDO {
 
     this.state.waitUntil(
       runTurn(
-        { userId, threadId, actor: 'user', message: body.message, stream: writer, signal: ac.signal, idempotencyKey },
+        { userId, threadId, actor: 'user', message: body.message, stream: writer, signal: ac.signal, idempotencyKey, turnId },
         deps
       )
-        .then((r) => { turnHandle.turnId = r.turnId; })
+        .then((_r) => { /* turnId already set on handle */ })
         .catch(() => { /* runTurn already emitted error event + finalized */ })
         .finally(() => { if (this.currentTurn === turnHandle) this.currentTurn = null; })
     );
