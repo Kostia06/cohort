@@ -69,15 +69,20 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
       signal: input.signal
     });
 
-    await postReview(orch.text, deps.ai);
+    const review = await postReview(orch.text, deps.ai);
+    let finalText = orch.text;
+    if (!review.ok && review.corrigendum) {
+      input.stream?.emit({ type: 'corrigendum', data: { text: review.corrigendum } });
+      finalText = `${orch.text}\n\n${review.corrigendum}`;
+    }
 
     await finalizeChatTurn({
       db: deps.db, turnId: inserted.turnId, status: 'complete',
-      text: orch.text, costUsd: orch.costUsd, now: deps.clock()
+      text: finalText, costUsd: orch.costUsd, now: deps.clock()
     });
-    input.stream?.emit({ type: 'turn_complete', data: { turn_id: inserted.turnId, full_text: orch.text, cost_usd: orch.costUsd } });
+    input.stream?.emit({ type: 'turn_complete', data: { turn_id: inserted.turnId, full_text: finalText, cost_usd: orch.costUsd } });
     input.stream?.close();
-    return { turnId: inserted.turnId, status: 'complete', text: orch.text, costUsd: orch.costUsd };
+    return { turnId: inserted.turnId, status: 'complete', text: finalText, costUsd: orch.costUsd };
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
