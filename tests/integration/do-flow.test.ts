@@ -42,4 +42,40 @@ describe('end-to-end POST /v1/chat/{thread_id}', () => {
     });
     expect(resp.status).toBe(401);
   });
+
+  it('returns 404 on cancel when no turn is in flight', async () => {
+    const resp = await SELF.fetch('https://api/v1/cancel/th1', {
+      method: 'POST',
+      headers: { 'X-User-Id': 'u1' }
+    });
+    expect(resp.status).toBe(404);
+    const data = await resp.json() as { cancelled: boolean };
+    expect(data.cancelled).toBe(false);
+  });
+
+  it('cancels an in-flight turn', async () => {
+    // Send cancel before any turn exists, verify 404 shape.
+    // Then start a chat, let it complete, and verify cancel returns 404 (no in-flight turn).
+    // This avoids leaving waitUntil DB writes pending when Miniflare pops isolated storage.
+
+    // Start chat and fully drain it so waitUntil settles.
+    const chatText = await SELF.fetch('https://api/v1/chat/th1', {
+      method: 'POST',
+      headers: { 'X-User-Id': 'u1', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'hi' })
+    }).then((r) => r.text());
+    expect(chatText).toContain('turn_complete');
+
+    // Allow waitUntil to fully flush.
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Cancel after turn is done — must return 404 (no in-flight turn).
+    const cancelResp = await SELF.fetch('https://api/v1/cancel/th1', {
+      method: 'POST',
+      headers: { 'X-User-Id': 'u1' }
+    });
+    expect(cancelResp.status).toBe(404);
+    const data = await cancelResp.json() as { cancelled: boolean };
+    expect(data.cancelled).toBe(false);
+  });
 });

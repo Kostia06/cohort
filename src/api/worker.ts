@@ -13,6 +13,13 @@ export default {
       const innerUrl = new URL(`https://do/chat/${threadId}`);
       return stub.fetch(new Request(innerUrl, req));
     }
+    if (req.method === 'POST' && url.pathname.startsWith('/v1/cancel/')) {
+      const userId = req.headers.get('X-User-Id');
+      if (!userId) return new Response('missing X-User-Id', { status: 401 });
+      const id = env.USER_AGENT_DO.idFromName(userId);
+      const stub = env.USER_AGENT_DO.get(id);
+      return stub.fetch(new Request('https://do/cancel', req));
+    }
     return new Response('not found', { status: 404 });
   }
 };
