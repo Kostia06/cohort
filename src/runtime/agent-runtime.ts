@@ -39,6 +39,27 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
     idempotencyKey: input.idempotencyKey, now
   });
   if (inserted.replay) {
+    const cached = await deps.db.prepare(
+      `SELECT status, text, cost_usd, ordinal FROM chat_turns WHERE turn_id = ?`
+    ).bind(inserted.turnId).first<{
+      status: string; text: string | null; cost_usd: number | null; ordinal: number;
+    }>();
+    if (cached && cached.status === 'complete') {
+      input.stream?.emit({ type: 'turn_started', data: { turn_id: inserted.turnId, ordinal: cached.ordinal } });
+      if (cached.text) {
+        input.stream?.emit({ type: 'text_delta', data: { chunk: cached.text } });
+      }
+      input.stream?.emit({
+        type: 'turn_complete',
+        data: { turn_id: inserted.turnId, full_text: cached.text ?? '', cost_usd: cached.cost_usd ?? 0 }
+      });
+      input.stream?.close();
+      return {
+        turnId: inserted.turnId, status: 'complete',
+        text: cached.text ?? '', costUsd: cached.cost_usd ?? 0
+      };
+    }
+    // Replay row exists but status is not 'complete'. Return a stub; future plan can wait/poll.
     return { turnId: inserted.turnId, status: 'complete', text: '', costUsd: 0 };
   }
 

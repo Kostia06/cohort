@@ -92,6 +92,31 @@ describe('runTurn', () => {
     expect(collector.events.some((e) => e.type === 'corrigendum')).toBe(true);
   });
 
+  it('replays a completed turn from D1 on idempotency-key hit', async () => {
+    // Pre-insert a completed turn to simulate a prior run.
+    await env.DB.prepare(
+      `INSERT INTO chat_turns (turn_id, thread_id, ordinal, actor, status, user_text, text, cost_usd, idempotency_key, started_at, ended_at)
+       VALUES ('original-turn', 'th1', 0, 'user', 'complete', 'hi', 'cached response', 0.005, 'replay-key', 1, 2)`
+    ).run();
+
+    // No scripts — runTurn should NOT call the AI on replay.
+    const deps = makeFakes({ db: env.DB, scripts: [], tools: [getUserProfileTool] });
+    const collector = createSseCollector();
+
+    const r = await runTurn({
+      userId: 'u1', threadId: 'th1', actor: 'user',
+      message: 'hi', stream: collector, signal: new AbortController().signal,
+      idempotencyKey: 'replay-key'
+    }, deps);
+
+    expect(r.turnId).toBe('original-turn');
+    expect(r.text).toBe('cached response');
+    expect(r.costUsd).toBe(0.005);
+    expect(deps.ai.calls.length).toBe(0);
+    expect(collector.events.some((e) => e.type === 'turn_started')).toBe(true);
+    expect(collector.events.some((e) => e.type === 'turn_complete')).toBe(true);
+  });
+
   it('blocks via preflight and persists with status preflight_blocked', async () => {
     const deps = makeFakes({ db: env.DB, scripts: [], tools: [] });
     const collector = createSseCollector();

@@ -53,6 +53,35 @@ describe('end-to-end POST /v1/chat/{thread_id}', () => {
     expect(data.cancelled).toBe(false);
   });
 
+  it('replays SSE events on idempotency-key retry', async () => {
+    const idemKey = 'replay-' + Date.now();
+    const headers = { 'X-User-Id': 'u1', 'Content-Type': 'application/json', 'Idempotency-Key': idemKey };
+
+    // First call.
+    const r1 = await SELF.fetch('https://api/v1/chat/th1', {
+      method: 'POST', headers, body: JSON.stringify({ message: 'hi' })
+    });
+    const text1 = await r1.text();
+    expect(text1).toContain('event: turn_complete');
+
+    // Allow waitUntil to flush.
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Second call with same idempotency key.
+    const r2 = await SELF.fetch('https://api/v1/chat/th1', {
+      method: 'POST', headers, body: JSON.stringify({ message: 'hi' })
+    });
+    const text2 = await r2.text();
+    expect(text2).toContain('event: turn_started');
+    expect(text2).toContain('event: turn_complete');
+
+    // Both should reference the same turn_id.
+    const turnIdRegex = /"turn_id":"([^"]+)"/;
+    const id1 = text1.match(turnIdRegex)?.[1];
+    const id2 = text2.match(turnIdRegex)?.[1];
+    expect(id1).toBe(id2);
+  });
+
   it('cancels an in-flight turn', async () => {
     // Send cancel before any turn exists, verify 404 shape.
     // Then start a chat, let it complete, and verify cancel returns 404 (no in-flight turn).
