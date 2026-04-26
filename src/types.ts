@@ -28,7 +28,7 @@ export interface TurnInput {
 
 export interface TurnResult {
   turnId: string;
-  status: 'complete' | 'error' | 'cancelled' | 'preflight_blocked';
+  status: 'complete' | 'error' | 'cancelled' | 'preflight_blocked' | 'cap_exceeded';
   text: string;
   costUsd: number;
 }

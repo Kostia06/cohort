@@ -132,4 +132,26 @@ describe('runTurn', () => {
     expect(r.text).toContain('pharmacist');
     expect(deps.ai.calls.length).toBe(0);
   });
+
+  it('rejects with cap_exceeded when daily spend reaches the cap', async () => {
+    // Set the user cap very low and seed prior spend.
+    await env.DB.prepare(`UPDATE users SET daily_cost_cap_cents = 1 WHERE user_id = 'u1'`).run();
+    await env.DB.prepare(
+      `INSERT INTO chat_turns (turn_id, thread_id, ordinal, actor, status, cost_usd, started_at, ended_at)
+       VALUES ('past','th1',0,'user','complete',0.05,?,?)`
+    ).bind(Date.now() - 1000, Date.now() - 999).run();
+
+    const deps = makeFakes({ db: env.DB, scripts: [], tools: [] });
+    const collector = createSseCollector();
+    const r = await runTurn({
+      userId: 'u1', threadId: 'th1', actor: 'user',
+      message: 'hi', stream: collector, signal: new AbortController().signal
+    }, deps);
+
+    expect(r.status).toBe('cap_exceeded');
+    expect(deps.ai.calls.length).toBe(0);
+    expect(collector.events.some((e) =>
+      e.type === 'text_delta' && (e.data as { chunk: string }).chunk.includes('cap')
+    )).toBe(true);
+  });
 });

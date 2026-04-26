@@ -1,6 +1,7 @@
 import { ulid } from 'ulid';
 import type { RuntimeDeps, TurnInput, TurnResult } from '../types';
 import { buildContext } from './build-context';
+import { getDailySpentCents, getCostCapCents } from './cost';
 import { runOrchestrator } from './orchestrator';
 import { finalizeChatTurn, insertChatTurnStreaming } from './persist';
 import { preflightSafety, postReview } from './safety';
@@ -30,6 +31,29 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
         input.stream?.close();
       }
       return { turnId: inserted.turnId, status: 'preflight_blocked', text: pf.cannedResponse ?? '', costUsd: 0 };
+    }
+
+    const [spent, cap] = await Promise.all([
+      getDailySpentCents(deps.db, input.userId, now),
+      getCostCapCents(deps.db, input.userId)
+    ]);
+    if (spent >= cap) {
+      const inserted = await insertChatTurnStreaming({
+        db: deps.db, turnId, threadId: input.threadId, actor: 'user',
+        userText: input.message ?? null, idempotencyKey: input.idempotencyKey, now
+      });
+      if (!inserted.replay) {
+        const message = `You've hit today's usage cap (${cap}¢). Resets in 24h.`;
+        input.stream?.emit({ type: 'turn_started', data: { turn_id: inserted.turnId, ordinal: inserted.ordinal } });
+        input.stream?.emit({ type: 'text_delta', data: { chunk: message } });
+        await finalizeChatTurn({
+          db: deps.db, turnId: inserted.turnId, status: 'cap_exceeded',
+          text: message, costUsd: 0, now: deps.clock()
+        });
+        input.stream?.emit({ type: 'turn_complete', data: { turn_id: inserted.turnId, full_text: message, cost_usd: 0 } });
+        input.stream?.close();
+      }
+      return { turnId: inserted.turnId, status: 'cap_exceeded', text: '', costUsd: 0 };
     }
   }
 
