@@ -52,7 +52,8 @@ export class UserAgentDO {
     const { writer, response } = createSseStreamWriter();
     const ai = createAIGatewayClient({
       url: this.env.AI_GATEWAY_URL,
-      apiKey: this.env.ANTHROPIC_API_KEY
+      apiKey: this.env.ANTHROPIC_API_KEY,
+      fetch: this.env.MOCK_GATEWAY?.fetch.bind(this.env.MOCK_GATEWAY)
     });
     const deps = {
       db: this.env.DB,

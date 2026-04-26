@@ -3,6 +3,8 @@ export interface Env {
   USER_AGENT_DO: DurableObjectNamespace;
   ANTHROPIC_API_KEY: string;
   AI_GATEWAY_URL: string;
+  /** Optional test service binding — when present, used as the fetch impl for AI gateway calls. */
+  MOCK_GATEWAY?: { fetch: typeof fetch };
 }
 
 export interface RuntimeDeps {
