@@ -56,4 +56,37 @@ describe('createAIGatewayClient', () => {
     expect(events.find((e) => e.type === 'content_block_delta').delta.text).toBe('hi');
     expect(events.find((e) => e.type === 'message_delta').stop_reason).toBe('end_turn');
   });
+
+  it('parses the trailing frame even without a final \\n\\n', async () => {
+    const sseBody = [
+      'event: message_start',
+      'data: {"type":"message_start","message":{"usage":{"input_tokens":1}}}',
+      '',
+      'event: message_stop',
+      'data: {"type":"message_stop"}'  // note: no trailing \n\n
+    ].join('\n');
+
+    const fakeFetch = async () =>
+      new Response(streamFromString(sseBody), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+
+    const client = createAIGatewayClient({
+      url: 'https://example/anthropic',
+      apiKey: 'k',
+      fetch: fakeFetch as typeof fetch
+    });
+
+    const events: any[] = [];
+    for await (const ev of client.streamMessage({
+      system: 's',
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [],
+      maxTokens: 100,
+      signal: new AbortController().signal
+    })) {
+      events.push(ev);
+    }
+
+    expect(events.length).toBe(2);
+    expect(events.at(-1).type).toBe('message_stop');
+  });
 });

@@ -60,6 +60,14 @@ async function* parseAnthropicSse(body: ReadableStream<Uint8Array>): AsyncIterab
       yield normalizeEvent(parsed);
     }
   }
+  // Flush any residual frame that didn't end with \n\n.
+  if (buffer.trim()) {
+    const dataLine = buffer.split('\n').find((l) => l.startsWith('data:'));
+    if (dataLine) {
+      const json = dataLine.slice(5).trim();
+      if (json) yield normalizeEvent(JSON.parse(json));
+    }
+  }
 }
 
 function normalizeEvent(raw: any): AnthropicStreamEvent {
