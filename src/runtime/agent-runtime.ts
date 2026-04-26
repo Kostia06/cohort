@@ -69,7 +69,7 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
       signal: input.signal
     });
 
-    await postReview(orch.text);
+    await postReview(orch.text, deps.ai);
 
     await finalizeChatTurn({
       db: deps.db, turnId: inserted.turnId, status: 'complete',
