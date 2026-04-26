@@ -13,10 +13,14 @@ interface RawPattern {
   kcalMaxFloor?: number;
 }
 
-const COMPILED = (dangerousTopics.patterns as RawPattern[]).map((p) => ({
-  ...p,
-  compiled: new RegExp(p.regex.replace(/^\(\?i\)/, ''), 'i')
-}));
+const COMPILED = (dangerousTopics.patterns as RawPattern[]).map((p) => {
+  try {
+    const cleaned = p.regex.replace(/^\(\?i\)/, '');
+    return { ...p, compiled: new RegExp(cleaned, 'i') };
+  } catch (e) {
+    throw new Error(`dangerous-topics.json: invalid regex for pattern "${p.id}": ${e instanceof Error ? e.message : String(e)}`);
+  }
+});
 
 export function preflightSafety(text: string): PreflightResult {
   for (const p of COMPILED) {

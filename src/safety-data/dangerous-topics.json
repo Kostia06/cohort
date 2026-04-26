@@ -12,7 +12,7 @@
     },
     {
       "id": "self_diagnosis",
-      "regex": "(?i)(do i have|am i (suffering from|developing))\\s+(\\w+\\s+)?(diabetes|cancer|adhd|depression|anxiety|hypertension|thyroid|deficiency)",
+      "regex": "(?i)(do i have|am i (suffering from|developing))\\s+(\\w+\\s+){0,2}(diabetes|cancer|adhd|depression|anxiety|hypertension|thyroid|deficiency)(?!\\s+under\\b|\\s+managed\\b|\\s+controlled\\b|\\s+under\\s+control)",
       "redirect": "I can't help with diagnosis. Please talk to a clinician. I can help with training, nutrition, sleep, and recovery questions."
     },
     {

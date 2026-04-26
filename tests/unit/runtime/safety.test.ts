@@ -28,4 +28,9 @@ describe('preflightSafety', () => {
   it('allows above-floor calorie targets', () => {
     expect(preflightSafety('Should I target 1800 kcal?').allow).toBe(true);
   });
+
+  it('does not false-positive on benign questions about existing conditions', () => {
+    // The unbounded modifier slot used to match this; the {0,2} cap should not.
+    expect(preflightSafety('do i have my diabetes under control still after the workout').allow).toBe(true);
+  });
 });
