@@ -56,3 +56,72 @@ wrangler d1 execute cohort --local --command "SELECT turn_id, status, substr(tex
 ## What this validates
 
 Successful smoke test confirms the full vertical slice: HTTP routing → JWT-stub auth → DO dispatch → runtime context build → preflight → orchestrator with streaming → SSE response → D1 persistence. The next steps are Plan 2 (additional tools, post-review, idempotency replay, cost cap) and Plan 3 (alarm/batch, janitor, smoke automation).
+
+---
+
+## After Plan 2: additional smoke checks
+
+7. **Replay test:**
+   - Send the same chat with the same `Idempotency-Key` twice.
+   - Second response should be near-instant and contain the same `turn_id` plus the same text.
+   - Example:
+     ```
+     KEY=$(uuidgen)
+     for i in 1 2; do
+       curl -N -X POST http://localhost:8787/v1/chat/th1 \
+         -H "X-User-Id: u1" -H "Content-Type: application/json" \
+         -H "Idempotency-Key: $KEY" \
+         -d '{"message":"what should I have for breakfast?"}'
+       echo "---"
+     done
+     ```
+
+8. **Cancel test:**
+   - In one terminal, start a chat (don't close it):
+     ```
+     curl -N -X POST http://localhost:8787/v1/chat/th1 \
+       -H "X-User-Id: u1" -H "Content-Type: application/json" \
+       -d '{"message":"explain creatine timing in detail"}'
+     ```
+   - In another terminal, immediately POST to /cancel:
+     ```
+     curl -X POST http://localhost:8787/v1/cancel/th1 -H "X-User-Id: u1"
+     ```
+   - Expected: cancel response `{"cancelled": true, "turn_id": "..."}` (200) or `{"cancelled": false, "reason": "no in-flight turn"}` (404) if the turn already completed.
+
+9. **Cost cap test:**
+   - Set the user's cap to 1 cent:
+     ```
+     wrangler d1 execute cohort --local --command "UPDATE users SET daily_cost_cap_cents=1 WHERE user_id='u1';"
+     ```
+   - After at least one prior chat (which logs cost), send a new chat.
+   - Expected SSE: single `text_delta` with the cap message + `turn_complete`. The persisted turn has `status='cap_exceeded'`.
+   - Reset the cap when done:
+     ```
+     wrangler d1 execute cohort --local --command "UPDATE users SET daily_cost_cap_cents=150 WHERE user_id='u1';"
+     ```
+
+10. **5xx retry behavior:**
+    - This is harder to test manually since we can't induce a 5xx from Anthropic on demand. The retry logic is unit-tested.
+    - If you want to verify, deploy with `AI_GATEWAY_URL` pointed at a non-existent endpoint briefly: the request should take ~1s longer than usual (one retry) before failing.
+
+11. **postReview corrigendum:**
+    - Send a message designed to elicit borderline content (e.g., "what's a good caffeine dosing strategy for a long ride?").
+    - The response may include a `corrigendum` SSE event with a safety note appended.
+    - Verify by checking the persisted turn's `text` includes the appended note.
+
+## What Plan 2 adds vs. Plan 1
+
+| Capability | Plan 1 | Plan 2 |
+|---|---|---|
+| Streaming chat | ✓ | ✓ |
+| One tool (get_user_profile) | ✓ | ✓ |
+| Preflight safety | ✓ | ✓ |
+| Post-stream review (Haiku) | stub | real |
+| Anthropic 5xx retry | ✗ | ✓ (1× backoff) |
+| Cancel endpoint | ✗ | ✓ |
+| SSE replay on idempotency | ✗ | ✓ |
+| Daily cost cap | ✗ | ✓ |
+| Remaining 8 tools | ✗ | ✗ (Plan 3) |
+| 5am batch alarm | ✗ | ✗ (Plan 3) |
+| JWT auth | ✗ | ✗ (Plan 3+) |
