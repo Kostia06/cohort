@@ -48,11 +48,14 @@ export interface FinalizeInput {
 }
 
 export async function finalizeChatTurn(input: FinalizeInput): Promise<void> {
-  await input.db.prepare(
+  const result = await input.db.prepare(
     `UPDATE chat_turns
      SET status = ?, text = ?, cost_usd = ?, ended_at = ?, error = ?
      WHERE turn_id = ?`
   ).bind(input.status, input.text, input.costUsd, input.now, input.error ?? null, input.turnId).run();
+  if (result.meta.changes === 0) {
+    throw new Error(`finalizeChatTurn: no row for turn_id=${input.turnId}`);
+  }
 }
 
 export interface ToolCallInput {
@@ -75,10 +78,18 @@ export async function recordToolCall(input: ToolCallInput): Promise<void> {
     input.turnId,
     input.callIndex,
     input.toolName,
-    JSON.stringify(input.input),
-    JSON.stringify(input.output),
+    safeSerialize(input.input),
+    safeSerialize(input.output),
     input.idempotencyKey ?? null,
     input.durationMs,
     input.error ?? null
   ).run();
+}
+
+function safeSerialize(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? 'null';
+  } catch {
+    return JSON.stringify({ serializationError: true });
+  }
 }

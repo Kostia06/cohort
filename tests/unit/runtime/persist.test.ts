@@ -51,6 +51,12 @@ describe('finalizeChatTurn', () => {
     const row = await env.DB.prepare(`SELECT status, text, cost_usd, ended_at FROM chat_turns WHERE turn_id='t1'`).first();
     expect(row).toEqual({ status: 'complete', text: 'world', cost_usd: 0.012, ended_at: 5 });
   });
+
+  it('throws when turn_id does not exist', async () => {
+    await expect(
+      finalizeChatTurn({ db: env.DB, turnId: 'nonexistent', status: 'complete', text: '', costUsd: 0, now: 1 })
+    ).rejects.toThrow(/no row for turn_id=nonexistent/);
+  });
 });
 
 describe('recordToolCall', () => {
