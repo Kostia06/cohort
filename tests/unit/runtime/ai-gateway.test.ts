@@ -89,4 +89,53 @@ describe('createAIGatewayClient', () => {
     expect(events.length).toBe(2);
     expect(events.at(-1).type).toBe('message_stop');
   });
+
+  it('silently drops unknown Anthropic events like ping', async () => {
+    const sseBody = [
+      'event: message_start',
+      'data: {"type":"message_start","message":{"usage":{"input_tokens":1}}}',
+      '',
+      'event: ping',
+      'data: {"type":"ping"}',
+      '',
+      'event: content_block_start',
+      'data: {"type":"content_block_start","index":0,"content_block":{"type":"text"}}',
+      '',
+      'event: content_block_delta',
+      'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}',
+      '',
+      'event: message_delta',
+      'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}',
+      '',
+      'event: message_stop',
+      'data: {"type":"message_stop"}',
+      '',
+      ''
+    ].join('\n');
+
+    const fakeFetch = async () =>
+      new Response(streamFromString(sseBody), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+
+    const client = createAIGatewayClient({
+      url: 'https://example/anthropic',
+      apiKey: 'k',
+      fetch: fakeFetch as typeof fetch
+    });
+
+    const events: any[] = [];
+    for await (const ev of client.streamMessage({
+      system: 's',
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [],
+      maxTokens: 100,
+      signal: new AbortController().signal
+    })) {
+      events.push(ev);
+    }
+
+    // Ping should be filtered out. Other events present.
+    expect(events.find((e) => e.type === 'ping')).toBeUndefined();
+    expect(events.some((e) => e.type === 'message_start')).toBe(true);
+    expect(events.some((e) => e.type === 'message_stop')).toBe(true);
+  });
 });

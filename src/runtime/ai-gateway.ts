@@ -57,7 +57,8 @@ async function* parseAnthropicSse(body: ReadableStream<Uint8Array>): AsyncIterab
       const json = dataLine.slice(5).trim();
       if (!json) continue;
       const parsed = JSON.parse(json);
-      yield normalizeEvent(parsed);
+      const normalized = normalizeEvent(parsed);
+      if (normalized) yield normalized;
     }
   }
   // Flush any residual frame that didn't end with \n\n.
@@ -65,12 +66,15 @@ async function* parseAnthropicSse(body: ReadableStream<Uint8Array>): AsyncIterab
     const dataLine = buffer.split('\n').find((l) => l.startsWith('data:'));
     if (dataLine) {
       const json = dataLine.slice(5).trim();
-      if (json) yield normalizeEvent(JSON.parse(json));
+      if (json) {
+        const normalized = normalizeEvent(JSON.parse(json));
+        if (normalized) yield normalized;
+      }
     }
   }
 }
 
-function normalizeEvent(raw: any): AnthropicStreamEvent {
+function normalizeEvent(raw: any): AnthropicStreamEvent | null {
   if (raw.type === 'message_start') {
     return { type: 'message_start', usage: { input_tokens: raw.message?.usage?.input_tokens ?? 0 } };
   }
@@ -93,5 +97,7 @@ function normalizeEvent(raw: any): AnthropicStreamEvent {
   if (raw.type === 'message_stop') {
     return { type: 'message_stop' };
   }
-  throw new Error(`unknown anthropic event: ${raw.type}`);
+  // Unknown events (ping, error, etc.) are silently dropped — log for observability.
+  console.debug(`[ai-gateway] dropping unknown anthropic event: ${raw?.type}`);
+  return null;
 }
