@@ -4,5 +4,6 @@ declare module 'cloudflare:test' {
     USER_AGENT_DO: DurableObjectNamespace;
     ANTHROPIC_API_KEY: string;
     AI_GATEWAY_URL: string;
+    JWT_SECRET: string;
   }
 }

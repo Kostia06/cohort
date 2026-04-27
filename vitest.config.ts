@@ -45,7 +45,8 @@ export default {
           }],
           bindings: {
             ANTHROPIC_API_KEY: 'test-key',
-            AI_GATEWAY_URL: 'https://mock-gateway/v1/anthropic'
+            AI_GATEWAY_URL: 'https://mock-gateway/v1/anthropic',
+            JWT_SECRET: 'test-secret-at-least-32-characters-long'
           }
         }
       }
