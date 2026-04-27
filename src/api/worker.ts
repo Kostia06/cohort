@@ -10,6 +10,7 @@ import { handleStatsRecent } from './stats-recent';
 import { handleCreateSet, handleGetWorkout } from './workout-sets';
 import { handleMeGet, handleMeUpdate } from './me';
 import { handleDeleteMeal, handleDeleteSet } from './delete-handlers';
+import { handleStatsStreaks } from './stats-streaks';
 export { UserAgentDO } from '../do/user-agent-do';
 
 const JANITOR_CRON = '*/5 * * * *';
@@ -127,6 +128,14 @@ export default {
       const timezone = userRow?.timezone ?? 'UTC';
       const result = await handleStatsRecent({ db: env.DB, userId, now: Date.now(), days, timezone });
       return Response.json(result);
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/stats/streaks') {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const profile = await env.DB.prepare(`SELECT timezone FROM users WHERE user_id = ?`).bind(auth).first<{ timezone: string }>();
+      const tz = profile?.timezone ?? 'UTC';
+      const r = await handleStatsStreaks({ db: env.DB, userId: auth, now: Date.now(), timezone: tz });
+      return Response.json(r);
     }
     if (req.method === 'GET' && url.pathname === '/v1/me') {
       const auth = await authenticateRequest(req, env);
