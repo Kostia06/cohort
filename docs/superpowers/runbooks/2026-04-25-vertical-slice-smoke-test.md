@@ -240,3 +240,55 @@ Successful smoke test confirms the full vertical slice: HTTP routing → JWT-stu
 | Batch turn endpoint | ✗ | ✗ | manual | cron |
 | Janitor sweep | ✗ | ✗ | ✗ | cron |
 | JWT auth | ✗ | ✗ | ✗ | ✗ (Plan 5) |
+
+---
+
+## After Plan 5: JWT auth
+
+**Setup:** before any smoke step that hits the API, generate a token:
+```
+JWT_SECRET=<your-secret> pnpm mint-jwt u1 > /tmp/cohort-token
+TOKEN=$(cat /tmp/cohort-token)
+```
+Set `JWT_SECRET` as a dev secret: `wrangler secret put JWT_SECRET` (interactive) or in `.dev.vars`.
+
+19. **Auth required:**
+    - Send a chat WITHOUT Authorization header → 401.
+    - Send with bad token → 401.
+    - Send with valid token → success.
+    ```
+    curl -X POST http://localhost:8787/v1/chat/th1 -H "Content-Type: application/json" -d '{"message":"hi"}'
+    # → 401
+
+    curl -X POST http://localhost:8787/v1/chat/th1 -H "Authorization: Bearer junk" -H "Content-Type: application/json" -d '{"message":"hi"}'
+    # → 401
+
+    curl -N -X POST http://localhost:8787/v1/chat/th1 -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"message":"hi"}'
+    # → SSE stream
+    ```
+
+20. **Token expiration:**
+    - For a short-lived test, edit `scripts/mint-jwt.ts` temporarily to use `expiresInSec: 1`, mint, sleep 2, send → 401.
+    - Real refresh flow is deferred to a future plan.
+
+## Plan 5 known limitations (deferred)
+
+- **Token issuance flow** — Apple Sign In → JWT exchange. For now the user mints tokens manually with `pnpm mint-jwt`.
+- **No refresh tokens** — clients re-mint when their token expires.
+- **No JWKS / RS256** — single shared HMAC secret. Rotation requires a deploy.
+- **No revocation** — short expiry (24h via `mint-jwt`) is the only invalidation mechanism.
+
+## P1 → P5 capability matrix
+
+| Capability | P1 | P2 | P3 | P4 | P5 |
+|---|---|---|---|---|---|
+| Streaming chat | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Tools | 1 | 1 | 9 | 9 | 9 |
+| Preflight + post-review | partial | ✓ | ✓ | ✓ | ✓ |
+| Anthropic 5xx retry | ✗ | ✓ | ✓ | ✓ | ✓ |
+| Cancel | ✗ | DO-wide | DO-wide | per-thread | per-thread |
+| SSE replay | ✗ | ✓ | ✓ | ✓ | ✓ |
+| Daily cost cap | ✗ | rolling 24h | rolling 24h | calendar-day | calendar-day |
+| Batch turn | ✗ | ✗ | manual | cron | cron |
+| Janitor | ✗ | ✗ | ✗ | ✓ | ✓ |
+| Auth | X-User-Id | X-User-Id | X-User-Id | X-User-Id | JWT (HS256) |

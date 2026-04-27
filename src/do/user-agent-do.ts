@@ -123,8 +123,8 @@ export class UserAgentDO {
     if (this.currentTurn) {
       return Response.json({ error: 'turn_in_flight', turn_id: this.currentTurn.turnId }, { status: 409 });
     }
-    const userId = req.headers.get('X-User-Id');
-    if (!userId) return new Response('missing X-User-Id', { status: 401 });
+    const userId = req.headers.get('X-Internal-User-Id');
+    if (!userId) return new Response('missing X-Internal-User-Id', { status: 401 });
     const threadId = url.pathname.slice('/chat/'.length);
     const body = await req.json<ChatRequestBody>();
     if (!body?.message) return new Response('missing message', { status: 400 });

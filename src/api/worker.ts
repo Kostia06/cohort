@@ -1,4 +1,5 @@
 import type { Env } from '../types';
+import { verifyJwt } from '../auth/jwt';
 import { runJanitor } from '../cron/janitor';
 import { runBatchTrigger } from '../cron/batch-trigger';
 export { UserAgentDO } from '../do/user-agent-do';
@@ -7,32 +8,47 @@ const JANITOR_CRON = '*/5 * * * *';
 const BATCH_CRON = '0 * * * *';
 const BATCH_TARGET_HOUR = 5;
 
+async function authenticateRequest(req: Request, env: Env): Promise<string | Response> {
+  const auth = req.headers.get('Authorization');
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return new Response('missing or malformed Authorization', { status: 401 });
+  }
+  const token = auth.slice('Bearer '.length);
+  const claims = await verifyJwt(token, env.JWT_SECRET);
+  if (!claims) return new Response('invalid or expired token', { status: 401 });
+  return claims.sub;
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (req.method === 'POST' && url.pathname.startsWith('/v1/chat/')) {
-      const userId = req.headers.get('X-User-Id');
-      if (!userId) return new Response('missing X-User-Id', { status: 401 });
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
       const threadId = url.pathname.slice('/v1/chat/'.length);
       const id = env.USER_AGENT_DO.idFromName(userId);
       const stub = env.USER_AGENT_DO.get(id);
       const innerUrl = new URL(`https://do/chat/${threadId}`);
-      return stub.fetch(new Request(innerUrl, req));
+      const innerReq = new Request(innerUrl, req);
+      innerReq.headers.set('X-Internal-User-Id', userId);
+      return stub.fetch(innerReq);
     }
     if (req.method === 'POST' && url.pathname.startsWith('/v1/cancel/')) {
-      const headerUserId = req.headers.get('X-User-Id');
-      if (!headerUserId) return new Response('missing X-User-Id', { status: 401 });
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
       const threadId = url.pathname.slice('/v1/cancel/'.length);
-      const id = env.USER_AGENT_DO.idFromName(headerUserId);
+      const id = env.USER_AGENT_DO.idFromName(userId);
       const stub = env.USER_AGENT_DO.get(id);
       return stub.fetch(new Request(`https://do/cancel/${threadId}`, { method: 'POST' }));
     }
     if (req.method === 'POST' && url.pathname.startsWith('/v1/run-batch/')) {
-      const headerUserId = req.headers.get('X-User-Id');
-      if (!headerUserId) return new Response('missing X-User-Id', { status: 401 });
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
       const pathUserId = url.pathname.slice('/v1/run-batch/'.length);
-      if (pathUserId !== headerUserId) return new Response('user_id mismatch', { status: 403 });
-      const userId = headerUserId;
+      if (pathUserId !== userId) return new Response('user_id mismatch', { status: 403 });
       const threadId = `batch-${new Date().toISOString().slice(0, 10)}`;
       await env.DB.prepare(
         `INSERT INTO chat_threads (thread_id, user_id, kind, created_at) VALUES (?, ?, 'batch', ?) ON CONFLICT(thread_id) DO NOTHING`

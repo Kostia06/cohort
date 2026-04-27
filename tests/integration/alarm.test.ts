@@ -1,6 +1,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, expect, it, beforeAll } from 'vitest';
 import { resetDb } from '../fakes/seed';
+import { mintTestJwt } from '../fakes/jwt-helper';
 
 beforeAll(async () => {
   await resetDb(env.DB);
@@ -24,9 +25,10 @@ describe('batch turn via /v1/run-batch', () => {
        VALUES (?, 'Alex', 'UTC', '[]', '[]', 150, 1)`
     ).bind(userId).run();
 
+    const token = await mintTestJwt(userId);
     const resp = await SELF.fetch(`https://api/v1/run-batch/${userId}`, {
       method: 'POST',
-      headers: { 'X-User-Id': userId }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     expect(resp.status).toBe(400);
     const data = await resp.json() as { ok: boolean };
@@ -47,9 +49,10 @@ describe('batch turn via /v1/run-batch', () => {
     ]);
 
     // Send a chat to prime DO storage with user_id.
+    const token = await mintTestJwt(userId);
     const chatText = await SELF.fetch(`https://api/v1/chat/${threadId}`, {
       method: 'POST',
-      headers: { 'X-User-Id': userId, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'hi' })
     }).then((r) => r.text());
     expect(chatText).toContain('turn_complete');
@@ -59,7 +62,7 @@ describe('batch turn via /v1/run-batch', () => {
 
     const resp = await SELF.fetch(`https://api/v1/run-batch/${userId}`, {
       method: 'POST',
-      headers: { 'X-User-Id': userId }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     expect(resp.status).toBe(200);
     const data = await resp.json() as { ok: boolean; status: string };

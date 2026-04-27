@@ -1,6 +1,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { resetDb } from '../fakes/seed';
+import { mintTestJwt } from '../fakes/jwt-helper';
 
 beforeEach(async () => {
   await resetDb(env.DB);
@@ -13,9 +14,10 @@ beforeEach(async () => {
 
 describe('end-to-end POST /v1/chat/{thread_id}', () => {
   it('returns an SSE stream and persists the turn', async () => {
+    const token = await mintTestJwt('u1');
     const resp = await SELF.fetch('https://api/v1/chat/th1', {
       method: 'POST',
-      headers: { 'X-User-Id': 'u1', 'Content-Type': 'application/json', 'Idempotency-Key': 'idem-1' },
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Idempotency-Key': 'idem-1' },
       body: JSON.stringify({ message: 'hi' })
     });
     expect(resp.status).toBe(200);
@@ -34,7 +36,7 @@ describe('end-to-end POST /v1/chat/{thread_id}', () => {
     expect(row?.text).toBe('hello');
   });
 
-  it('rejects requests without X-User-Id', async () => {
+  it('rejects requests without Authorization', async () => {
     const resp = await SELF.fetch('https://api/v1/chat/th1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,10 +45,20 @@ describe('end-to-end POST /v1/chat/{thread_id}', () => {
     expect(resp.status).toBe(401);
   });
 
+  it('rejects requests with an invalid token', async () => {
+    const resp = await SELF.fetch('https://api/v1/chat/th1', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer not-a-real-token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'hi' })
+    });
+    expect(resp.status).toBe(401);
+  });
+
   it('returns 404 on cancel when no turn is in flight', async () => {
+    const token = await mintTestJwt('u1');
     const resp = await SELF.fetch('https://api/v1/cancel/th1', {
       method: 'POST',
-      headers: { 'X-User-Id': 'u1' }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     expect(resp.status).toBe(404);
     const data = await resp.json() as { cancelled: boolean };
@@ -55,7 +67,8 @@ describe('end-to-end POST /v1/chat/{thread_id}', () => {
 
   it('replays SSE events on idempotency-key retry', async () => {
     const idemKey = 'replay-' + Date.now();
-    const headers = { 'X-User-Id': 'u1', 'Content-Type': 'application/json', 'Idempotency-Key': idemKey };
+    const token = await mintTestJwt('u1');
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Idempotency-Key': idemKey };
 
     // First call.
     const r1 = await SELF.fetch('https://api/v1/chat/th1', {
@@ -88,9 +101,10 @@ describe('end-to-end POST /v1/chat/{thread_id}', () => {
     // This avoids leaving waitUntil DB writes pending when Miniflare pops isolated storage.
 
     // Start chat and fully drain it so waitUntil settles.
+    const token = await mintTestJwt('u1');
     const chatText = await SELF.fetch('https://api/v1/chat/th1', {
       method: 'POST',
-      headers: { 'X-User-Id': 'u1', 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'hi' })
     }).then((r) => r.text());
     expect(chatText).toContain('turn_complete');
@@ -101,7 +115,7 @@ describe('end-to-end POST /v1/chat/{thread_id}', () => {
     // Cancel after turn is done — must return 404 (no in-flight turn).
     const cancelResp = await SELF.fetch('https://api/v1/cancel/th1', {
       method: 'POST',
-      headers: { 'X-User-Id': 'u1' }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     expect(cancelResp.status).toBe(404);
     const data = await cancelResp.json() as { cancelled: boolean };
@@ -114,9 +128,10 @@ describe('end-to-end POST /v1/chat/{thread_id}', () => {
     // The 409 branch (wrong thread_id while a turn is in flight) is exercised by the
     // DO unit logic; this integration test validates the routing without leaving
     // pending waitUntil writes that cause Miniflare isolated-storage teardown failures.
+    const token = await mintTestJwt('u1');
     const cancelResp = await SELF.fetch('https://api/v1/cancel/th2', {
       method: 'POST',
-      headers: { 'X-User-Id': 'u1' }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
 
     // 409 (in flight on different thread) or 404 (no in-flight turn) — both acceptable.
