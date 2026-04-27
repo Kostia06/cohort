@@ -516,3 +516,31 @@ flutter run
 - **No iOS push notifications** — APN integration is its own future plan.
 - **Single thread (`main`)** — multi-thread support is a UI feature, not a server one.
 - **Android build is generated but untested** — iOS only for v1.
+
+---
+
+## After Plan 10: real HealthKit reader
+
+**Setup (iOS device only — simulator does not surface real Health data):**
+1. Open `mobile/ios/Runner.xcworkspace` in Xcode.
+2. Select the Runner target → Signing & Capabilities → ensure HealthKit capability is enabled (if it's missing, click "+ Capability" and add it).
+3. Pair a physical iPhone, sign in with your Apple ID, set a development team on the Runner target, and run.
+
+33. **Permission flow (first run):**
+    - Open the Sync screen, tap "Read last night from Health".
+    - iOS shows the Health permission prompt; allow access to HRV / Resting HR / Sleep.
+    - The form auto-fills with last night's values.
+
+34. **Sync to server:**
+    - With values filled, tap "Sync today".
+    - Server returns the readiness payload (calibrating until 14 days of history; otherwise score + band).
+
+35. **Manual override:**
+    - You can still edit any field after the auto-fill before syncing.
+
+## Plan 10 known limitations
+
+- **Foreground only** — user must open the app to trigger a sync. Background delivery (HealthKit observer queries that wake the app) is its own future plan.
+- **iOS only** — Android Health Connect is supported by the `health` package but not configured here.
+- **Last night only** — no historical backfill API. Bulk import would loop the per-day endpoint.
+- **No source preference** — if Apple Watch and a third-party app both write HRV, we use whichever the most recent sample comes from.
