@@ -170,3 +170,73 @@ Successful smoke test confirms the full vertical slice: HTTP routing → JWT-stu
 | Cron trigger | ✗ | ✗ | ✗ (Plan 4) |
 | JWT auth | ✗ | ✗ | ✗ (Plan 4+) |
 | Janitor cron | ✗ | ✗ | ✗ (Plan 4) |
+
+---
+
+## After Plan 4: cron + janitor + per-thread cancel + calendar-day cap
+
+15. **Janitor sweep:**
+    - Insert a stuck row:
+      ```
+      wrangler d1 execute cohort --local --command "INSERT INTO chat_turns (turn_id, thread_id, ordinal, actor, status, started_at) VALUES ('stuck','th1',99,'user','streaming',$(($(date +%s) - 600))*1000);"
+      ```
+    - Trigger the cron manually (only works when `wrangler dev --test-scheduled` is running):
+      ```
+      curl 'http://localhost:8787/cdn-cgi/handler/scheduled?cron=*%2F5+*+*+*+*'
+      ```
+    - Check: `wrangler d1 execute cohort --local --command "SELECT status, error FROM chat_turns WHERE turn_id='stuck';"` → expects `error / janitor_sweep`.
+
+16. **Batch cron (manual trigger):**
+    - Confirm a user has a timezone where their current local hour is 5am. Example for testing:
+      ```
+      wrangler d1 execute cohort --local --command "UPDATE users SET timezone='Etc/GMT-$(date -u +%H | sed 's/^0//')' WHERE user_id='u1';"
+      ```
+    - Trigger the cron: `curl 'http://localhost:8787/cdn-cgi/handler/scheduled?cron=0+*+*+*+*'`
+    - Check: `wrangler d1 execute cohort --local --command "SELECT thread_id, actor, status FROM chat_turns WHERE actor='system' ORDER BY started_at DESC LIMIT 1;"` should show a system turn.
+
+17. **Per-thread cancel:**
+    - Start a long chat on thread A:
+      ```
+      curl -N -X POST http://localhost:8787/v1/chat/thA -H "X-User-Id: u1" -H "Content-Type: application/json" -d '{"message":"explain creatine timing in detail"}'
+      ```
+    - In another terminal cancel a different thread B:
+      ```
+      curl -X POST http://localhost:8787/v1/cancel/thB -H "X-User-Id: u1"
+      ```
+    - Expected: 409 with body `{"cancelled": false, "reason": "in-flight turn is on a different thread", "in_flight_thread_id": "thA"}`.
+    - Then cancel the correct thread:
+      ```
+      curl -X POST http://localhost:8787/v1/cancel/thA -H "X-User-Id: u1"
+      ```
+    - Expected: 200 with `{"cancelled": true, "turn_id": "..."}`.
+
+18. **Calendar-day cost cap:**
+    - Set the cap to a low value: `wrangler d1 execute cohort --local --command "UPDATE users SET daily_cost_cap_cents=1 WHERE user_id='u1';"`
+    - Make sure there's prior cost: `wrangler d1 execute cohort --local --command "INSERT INTO chat_turns (turn_id,thread_id,ordinal,actor,status,cost_usd,started_at,ended_at) VALUES ('seed','th1',999,'user','complete',0.10, strftime('%s','now')*1000, strftime('%s','now')*1000);"`
+    - Send a chat → expect cap_exceeded.
+    - Wait until local midnight (or fudge the started_at to be from yesterday) — the cap should reset.
+    - Reset cap: `wrangler d1 execute cohort --local --command "UPDATE users SET daily_cost_cap_cents=150 WHERE user_id='u1';"`
+
+## Plan 4 known limitations (deferred to Plan 5)
+
+- **Cron triggers only fire on deploy.** Local `wrangler dev` doesn't run crons automatically; use `--test-scheduled` and the manual handler URLs above.
+- **Batch trigger iterates ALL users every hour.** O(N) scan is fine for v1 dogfood; at scale, store a `next_batch_at` column or use a per-hour bucket index.
+- **JWT auth still deferred** — `X-User-Id` header is still trusted on every request. Plan 5.
+- **Real grocery / research workers** still stubs.
+- **HealthKit sync** still external.
+
+## P1 → P2 → P3 → P4 capability matrix
+
+| Capability | P1 | P2 | P3 | P4 |
+|---|---|---|---|---|
+| Streaming chat | ✓ | ✓ | ✓ | ✓ |
+| 9 tools (1 + 8) | 1 | 1 | 9 | 9 |
+| Preflight safety | ✓ | ✓ | ✓ | ✓ |
+| Post-stream review (Haiku) | stub | ✓ | ✓ | ✓ |
+| Anthropic 5xx retry | ✗ | ✓ | ✓ | ✓ |
+| Cancel endpoint | ✗ | DO-wide | DO-wide | per-thread |
+| SSE replay on idempotency | ✗ | ✓ | ✓ | ✓ |
+| Daily cost cap | ✗ | rolling 24h | rolling 24h | calendar-day local-tz |
+| Batch turn endpoint | ✗ | ✗ | manual | cron |
+| Janitor sweep | ✗ | ✗ | ✗ | cron |
+| JWT auth | ✗ | ✗ | ✗ | ✗ (Plan 5) |
