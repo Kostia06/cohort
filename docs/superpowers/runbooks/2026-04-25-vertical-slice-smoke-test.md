@@ -477,3 +477,42 @@ wrangler d1 execute cohort --remote --file=/tmp/seed.sql
 | `search_groceries` | stub | stub | **real** | real |
 | `get_readiness` | always null | always null | always null | **real (after 14d calibration)** |
 | HealthKit sync endpoint | ✗ | ✗ | ✗ | ✓ |
+
+---
+
+## After Plan 9: Flutter MVP
+
+**Setup:**
+```
+cd mobile
+flutter pub get
+# Open in Xcode for first run + simulator selection
+open ios/Runner.xcworkspace
+```
+
+Then to run on the simulator:
+```
+flutter run
+```
+
+**In-app config:**
+- Tap the gear icon, paste a token from `pnpm mint-jwt u1` (run from the repo root with `JWT_SECRET=...`).
+- Set Base URL to your dev Worker URL or `http://localhost:8787` (note: simulator can hit localhost; physical device needs your dev tunnel URL).
+
+31. **Chat round-trip:**
+    - Type "hi" and tap send. Expect SSE bubble that streams text. Tool events appear above the text.
+    - Tap stop while streaming → cancel triggers.
+
+32. **HealthKit sync test:**
+    - Open the heart icon in the app bar.
+    - Adjust HRV/RHR/sleep numbers and tap Sync today.
+    - Result panel shows the readiness payload (calibrating until 14 days of history; otherwise score + band).
+
+## Plan 9 known limitations
+
+- **No real HealthKit reader** — manual numbers only. Plan 10 will add the iOS HealthKit integration.
+- **No Apple Sign In** — JWT is pasted manually.
+- **No plan view** — chat-only UI; the daily plan from `/v1/run-batch` is not rendered yet.
+- **No iOS push notifications** — APN integration is its own future plan.
+- **Single thread (`main`)** — multi-thread support is a UI feature, not a server one.
+- **Android build is generated but untested** — iOS only for v1.

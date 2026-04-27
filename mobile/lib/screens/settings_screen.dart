@@ -52,10 +52,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             FilledButton(
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
                 await widget.controller.setBaseUrl(_urlController.text.trim());
                 await widget.controller.setJwt(_jwtController.text.trim());
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Saved')),
                 );
               },

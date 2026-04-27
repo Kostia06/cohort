@@ -90,7 +90,7 @@ class ApiClient {
   void close() => _http.close(force: true);
 }
 
-/// Parses a Stream<String> of SSE-formatted text into typed [SseEvent]s.
+/// Parses a Stream of SSE-formatted text into typed [SseEvent]s.
 /// Visible for testing; pure function over its input.
 Stream<SseEvent> parseSse(Stream<String> source) async* {
   String buffer = '';
