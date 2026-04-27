@@ -6,5 +6,6 @@ declare module 'cloudflare:test' {
     AI_GATEWAY_URL: string;
     JWT_SECRET: string;
     RESEARCH: Fetcher;
+    GROCERY: Fetcher;
   }
 }

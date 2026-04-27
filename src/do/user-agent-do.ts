@@ -81,7 +81,7 @@ export class UserAgentDO {
         ai,
         tools: buildToolRegistry(),
         clock: () => Date.now(),
-        bindings: { research: this.env.RESEARCH }
+        bindings: { research: this.env.RESEARCH, grocery: this.env.GROCERY }
       } as any;
 
       const threadId = `batch-${new Date().toISOString().slice(0, 10)}`;
@@ -149,7 +149,7 @@ export class UserAgentDO {
       ai,
       tools: buildToolRegistry(),
       clock: () => Date.now(),
-      bindings: { research: this.env.RESEARCH }
+      bindings: { research: this.env.RESEARCH, grocery: this.env.GROCERY }
     } as any;
 
     await this.setUserId(userId);

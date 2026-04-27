@@ -7,6 +7,7 @@ export interface Env {
   /** Optional test service binding — when present, used as the fetch impl for AI gateway calls. */
   MOCK_GATEWAY?: { fetch: typeof fetch };
   RESEARCH: Fetcher;
+  GROCERY: Fetcher;
 }
 
 export interface RuntimeDeps {

@@ -25,3 +25,7 @@ crons = ["*/5 * * * *", "0 * * * *"]
 [[services]]
 binding = "RESEARCH"
 service = "cohort-research"
+
+[[services]]
+binding = "GROCERY"
+service = "cohort-grocery"
