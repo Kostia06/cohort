@@ -11,6 +11,7 @@ export class UserAgentDO {
   state: DurableObjectState;
   env: Env;
   currentTurn: { abortController: AbortController; turnId: string } | null = null;
+  private currentTurnThreadId: string | null = null;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -25,8 +26,9 @@ export class UserAgentDO {
     if (req.method === 'GET' && url.pathname === '/health') {
       return Response.json({ inFlight: this.currentTurn !== null });
     }
-    if (req.method === 'POST' && url.pathname === '/cancel') {
-      return this.handleCancel();
+    if (req.method === 'POST' && url.pathname.startsWith('/cancel/')) {
+      const threadId = url.pathname.slice('/cancel/'.length);
+      return this.handleCancel(threadId);
     }
     if (req.method === 'POST' && url.pathname === '/run-batch') {
       return this.handleRunBatch();
@@ -102,9 +104,16 @@ export class UserAgentDO {
     }
   }
 
-  private handleCancel(): Response {
+  private handleCancel(threadId: string): Response {
     if (!this.currentTurn) {
       return Response.json({ cancelled: false, reason: 'no in-flight turn' }, { status: 404 });
+    }
+    if (this.currentTurnThreadId !== threadId) {
+      return Response.json({
+        cancelled: false,
+        reason: 'in-flight turn is on a different thread',
+        in_flight_thread_id: this.currentTurnThreadId
+      }, { status: 409 });
     }
     this.currentTurn.abortController.abort();
     return Response.json({ cancelled: true, turn_id: this.currentTurn.turnId });
@@ -125,6 +134,7 @@ export class UserAgentDO {
     const turnId = ulid();
     const turnHandle = { abortController: ac, turnId };
     this.currentTurn = turnHandle;
+    this.currentTurnThreadId = threadId;
     req.signal.addEventListener('abort', () => ac.abort(), { once: true });
 
     const { writer, response } = createSseStreamWriter();
@@ -148,7 +158,12 @@ export class UserAgentDO {
       )
         .then((_r) => { /* turnId already set on handle */ })
         .catch(() => { /* runTurn already emitted error event + finalized */ })
-        .finally(() => { if (this.currentTurn === turnHandle) this.currentTurn = null; })
+        .finally(() => {
+          if (this.currentTurn === turnHandle) {
+            this.currentTurn = null;
+            this.currentTurnThreadId = null;
+          }
+        })
     );
 
     return response;

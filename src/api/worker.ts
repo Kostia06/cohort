@@ -20,11 +20,12 @@ export default {
       return stub.fetch(new Request(innerUrl, req));
     }
     if (req.method === 'POST' && url.pathname.startsWith('/v1/cancel/')) {
-      const userId = req.headers.get('X-User-Id');
-      if (!userId) return new Response('missing X-User-Id', { status: 401 });
-      const id = env.USER_AGENT_DO.idFromName(userId);
+      const headerUserId = req.headers.get('X-User-Id');
+      if (!headerUserId) return new Response('missing X-User-Id', { status: 401 });
+      const threadId = url.pathname.slice('/v1/cancel/'.length);
+      const id = env.USER_AGENT_DO.idFromName(headerUserId);
       const stub = env.USER_AGENT_DO.get(id);
-      return stub.fetch(new Request('https://do/cancel', req));
+      return stub.fetch(new Request(`https://do/cancel/${threadId}`, { method: 'POST' }));
     }
     if (req.method === 'POST' && url.pathname.startsWith('/v1/run-batch/')) {
       const headerUserId = req.headers.get('X-User-Id');
