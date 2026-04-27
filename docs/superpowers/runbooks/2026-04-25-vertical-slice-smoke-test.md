@@ -125,3 +125,48 @@ Successful smoke test confirms the full vertical slice: HTTP routing → JWT-stu
 | Remaining 8 tools | ✗ | ✗ (Plan 3) |
 | 5am batch alarm | ✗ | ✗ (Plan 3) |
 | JWT auth | ✗ | ✗ (Plan 3+) |
+
+---
+
+## After Plan 3: tools + batch smoke checks
+
+12. **Tools available:**
+    Send a chat that should exercise tools, e.g. "what did I eat in the last week?" or "log: oatmeal 380 kcal at 7am". The response should include `tool_call_start`/`tool_call_result` SSE events for visible tools (`log_meal`, `propose_workout`, `compute_acwr`, `search_groceries`, `search_research`). Hidden tools (`get_user_profile`, `get_readiness`, `get_recent_meals`, `note_dislike`) emit no SSE.
+
+13. **Batch turn:**
+    After at least one chat (so the DO has cached user_id):
+    ```
+    curl -X POST http://localhost:8787/v1/run-batch/u1 -H "X-User-Id: u1"
+    ```
+    Expected: `{"ok":true,"status":"complete","turn_id":"..."}`. Check D1:
+    ```
+    wrangler d1 execute cohort --local --command "SELECT thread_id, actor, status, substr(text,1,80) FROM chat_turns WHERE actor='system' ORDER BY started_at DESC LIMIT 1;"
+    ```
+    Expected: one row with actor=system and a generated text.
+
+14. **Stub tools (search_groceries, search_research):**
+    Send a chat about groceries or research, e.g. "find me oats nearby" or "any research on creatine timing?". The orchestrator will call the stub tool; the tool returns `{error: 'not_yet_available'}` and the model should explain this gracefully to the user.
+
+## Plan 3 Known limitations (deferred to Plan 4+)
+
+- **Cold-DO alarm gap:** `userId` is cached in-memory in the DO. If the DO is evicted (long idle) and then the alarm fires on a fresh instance, the alarm silently no-ops because `cachedUserId` is null. Workaround: chat at least once per cold-start window; durable fix is to switch to `state.storage` with proper test isolation.
+- **No cron trigger:** the alarm endpoint exists but no `[triggers] crons` entry in wrangler.toml fires it. Plan 4 wires this up.
+- **`grocery-worker` and `research-worker`** are stubs returning "not_yet_available". The real Workers (per the original deep-dive doc) are separate plans.
+
+## Plan 1 → Plan 2 → Plan 3 capability matrix
+
+| Capability | P1 | P2 | P3 |
+|---|---|---|---|
+| Streaming chat | ✓ | ✓ | ✓ |
+| One tool (get_user_profile) | ✓ | ✓ | ✓ |
+| 8 more tools | ✗ | ✗ | ✓ |
+| Preflight safety | ✓ | ✓ | ✓ |
+| Post-stream review (Haiku) | stub | ✓ | ✓ |
+| Anthropic 5xx retry | ✗ | ✓ | ✓ |
+| Cancel endpoint | ✗ | ✓ | ✓ |
+| SSE replay on idempotency | ✗ | ✓ | ✓ |
+| Daily cost cap | ✗ | ✓ | ✓ |
+| Batch turn | ✗ | ✗ | ✓ (manual trigger) |
+| Cron trigger | ✗ | ✗ | ✗ (Plan 4) |
+| JWT auth | ✗ | ✗ | ✗ (Plan 4+) |
+| Janitor cron | ✗ | ✗ | ✗ (Plan 4) |

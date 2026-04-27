@@ -28,11 +28,78 @@ export class UserAgentDO {
     if (req.method === 'POST' && url.pathname === '/cancel') {
       return this.handleCancel();
     }
+    if (req.method === 'POST' && url.pathname === '/run-batch') {
+      return this.handleRunBatch();
+    }
     return new Response('not found', { status: 404 });
   }
 
   async alarm(): Promise<void> {
-    // Batch path is implemented in a follow-up plan.
+    try {
+      const resp = await this.handleRunBatch();
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => '');
+        console.warn(`[alarm] batch returned non-OK: ${resp.status} ${body}`);
+      }
+    } catch (err) {
+      console.error('[alarm] batch run failed:', err);
+    }
+  }
+
+  private async getUserId(): Promise<string | null> {
+    return (await this.state.storage.get<string>('user_id')) ?? null;
+  }
+
+  private async setUserId(userId: string): Promise<void> {
+    await this.state.storage.put('user_id', userId);
+  }
+
+  private async handleRunBatch(): Promise<Response> {
+    const userId = await this.getUserId();
+    if (!userId) {
+      return Response.json({ ok: false, reason: 'no user_id stored — chat at least once first' }, { status: 400 });
+    }
+    if (this.currentTurn) {
+      return Response.json({ ok: false, reason: 'turn in flight' }, { status: 409 });
+    }
+
+    const ac = new AbortController();
+    const turnId = ulid();
+    const turnHandle = { abortController: ac, turnId };
+    this.currentTurn = turnHandle;
+
+    try {
+      const ai = createAIGatewayClient({
+        url: this.env.AI_GATEWAY_URL,
+        apiKey: this.env.ANTHROPIC_API_KEY,
+        fetch: this.env.MOCK_GATEWAY?.fetch?.bind(this.env.MOCK_GATEWAY)
+      });
+      const deps = {
+        db: this.env.DB,
+        ai,
+        tools: buildToolRegistry(),
+        clock: () => Date.now()
+      };
+
+      const threadId = `batch-${new Date().toISOString().slice(0, 10)}`;
+
+      const r = await runTurn(
+        {
+          userId,
+          threadId,
+          actor: 'system',
+          systemHint: 'Generate tomorrow\'s plan considering recent readiness, recent meals, and recent workouts. Use propose_workout to record planned sessions.',
+          stream: null,
+          signal: ac.signal,
+          idempotencyKey: `batch:${userId}:${threadId}`,
+          turnId
+        },
+        deps
+      );
+      return Response.json({ ok: true, status: r.status, turn_id: r.turnId });
+    } finally {
+      if (this.currentTurn === turnHandle) this.currentTurn = null;
+    }
   }
 
   private handleCancel(): Response {
@@ -73,6 +140,7 @@ export class UserAgentDO {
       clock: () => Date.now()
     };
 
+    await this.setUserId(userId);
     this.state.waitUntil(
       runTurn(
         { userId, threadId, actor: 'user', message: body.message, stream: writer, signal: ac.signal, idempotencyKey, turnId },
