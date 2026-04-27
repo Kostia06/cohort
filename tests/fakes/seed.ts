@@ -160,6 +160,18 @@ CREATE TABLE IF NOT EXISTS health_samples_daily (
   PRIMARY KEY (user_id, date)
 );
 CREATE INDEX IF NOT EXISTS idx_health_samples_user_date ON health_samples_daily(user_id, date DESC);
+CREATE TABLE IF NOT EXISTS workout_sets (
+  set_id TEXT PRIMARY KEY,
+  workout_id TEXT NOT NULL,
+  ordinal INTEGER NOT NULL,
+  exercise TEXT NOT NULL,
+  reps INTEGER,
+  weight_kg REAL,
+  rpe INTEGER,
+  notes TEXT,
+  logged_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_workout_sets_workout ON workout_sets(workout_id, ordinal);
 `;
 
 export async function applySchema(db: D1Database): Promise<void> {
@@ -168,5 +180,5 @@ export async function applySchema(db: D1Database): Promise<void> {
 
 export async function resetDb(db: D1Database): Promise<void> {
   await applySchema(db);
-  await db.exec('DELETE FROM health_samples_daily; DELETE FROM community_prices; DELETE FROM price_estimates; DELETE FROM research_chunks; DELETE FROM research_summaries; DELETE FROM research_papers; DELETE FROM plans; DELETE FROM workouts; DELETE FROM meals; DELETE FROM readiness_daily; DELETE FROM chat_tool_calls; DELETE FROM chat_turns; DELETE FROM chat_threads; DELETE FROM users;');
+  await db.exec('DELETE FROM workout_sets; DELETE FROM health_samples_daily; DELETE FROM community_prices; DELETE FROM price_estimates; DELETE FROM research_chunks; DELETE FROM research_summaries; DELETE FROM research_papers; DELETE FROM plans; DELETE FROM workouts; DELETE FROM meals; DELETE FROM readiness_daily; DELETE FROM chat_tool_calls; DELETE FROM chat_turns; DELETE FROM chat_threads; DELETE FROM users;');
 }

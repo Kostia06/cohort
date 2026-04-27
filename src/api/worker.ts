@@ -7,6 +7,7 @@ import { handleMealCreate } from './meals-create';
 import { handlePlansToday } from './plans-today';
 import { handleWorkoutUpdate } from './workouts-update';
 import { handleStatsRecent } from './stats-recent';
+import { handleCreateSet, handleGetWorkout } from './workout-sets';
 export { UserAgentDO } from '../do/user-agent-do';
 
 const JANITOR_CRON = '*/5 * * * *';
@@ -69,6 +70,26 @@ export default {
       const date = url.searchParams.get('date') ?? new Date().toISOString().slice(0, 10);
       const result = await handlePlansToday({ userId, date, now: Date.now(), db: env.DB });
       return Response.json(result);
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/v1/workouts/')) {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
+      const workoutId = url.pathname.slice('/v1/workouts/'.length);
+      const r = await handleGetWorkout({ db: env.DB, userId, workoutId });
+      if (!r.ok) return Response.json({ error: r.reason ?? 'failed' }, { status: r.status ?? 500 });
+      return Response.json({ workout: r.workout, sets: r.sets });
+    }
+    if (req.method === 'POST' && url.pathname.startsWith('/v1/workouts/') && url.pathname.endsWith('/sets')) {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
+      const path = url.pathname.slice('/v1/workouts/'.length);
+      const workoutId = path.replace(/\/sets$/, '');
+      const body = await req.json<any>();
+      const r = await handleCreateSet({ db: env.DB, userId, workoutId, now: Date.now(), input: body });
+      if (!r.ok) return Response.json({ error: r.reason ?? 'failed' }, { status: r.status ?? 500 });
+      return Response.json({ ok: true, set_id: r.set_id, ordinal: r.ordinal });
     }
     if (req.method === 'PATCH' && url.pathname.startsWith('/v1/workouts/')) {
       const auth = await authenticateRequest(req, env);
