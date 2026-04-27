@@ -2,6 +2,7 @@ import type { Env } from '../types';
 import { verifyJwt } from '../auth/jwt';
 import { runJanitor } from '../cron/janitor';
 import { runBatchTrigger } from '../cron/batch-trigger';
+import { handleHealthKitSync } from './healthkit-sync';
 export { UserAgentDO } from '../do/user-agent-do';
 
 const JANITOR_CRON = '*/5 * * * *';
@@ -56,6 +57,16 @@ export default {
       const id = env.USER_AGENT_DO.idFromName(userId);
       const stub = env.USER_AGENT_DO.get(id);
       return stub.fetch(new Request('https://do/run-batch', { method: 'POST' }));
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/healthkit/sync') {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
+      const sample = await req.json<{ date: string; hrv_sdnn_ms?: number; rhr_bpm?: number; sleep_minutes?: number; time_in_bed_minutes?: number; active_kcal?: number; steps?: number }>();
+      if (!sample?.date) return new Response('missing date', { status: 400 });
+      const deps = { db: env.DB, clock: () => Date.now() };
+      const result = await handleHealthKitSync(userId, sample, deps);
+      return Response.json(result);
     }
     return new Response('not found', { status: 404 });
   },
