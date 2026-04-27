@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../api/api_client.dart';
 import '../api/auth_storage.dart';
 import '../health/auto_sync_service.dart';
 import '../state/auto_sync_controller.dart';
@@ -263,9 +264,10 @@ class _TodayScreenState extends State<TodayScreen> {
             const SizedBox(height: 8),
             if (meals.isEmpty) const Text('No meals logged in the last 24 hours.'),
             ...meals.map((m) {
+              final mealId = (m['meal_id'] as String?) ?? '';
               final name = (m['name'] as String?) ?? '';
               final kcal = m['kcal'];
-              return Padding(
+              final inner = Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(
                   children: [
@@ -275,6 +277,34 @@ class _TodayScreenState extends State<TodayScreen> {
                     if (kcal != null) Text('$kcal kcal', style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
+              );
+              return Dismissible(
+                key: ValueKey('meal-$mealId'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onErrorContainer),
+                ),
+                confirmDismiss: (_) async {
+                  final client = ApiClient(baseUrl: widget.settings.baseUrl, jwt: widget.settings.jwt);
+                  try {
+                    await client.deleteMeal(mealId);
+                    return true;
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Delete failed: $e')),
+                      );
+                    }
+                    return false;
+                  } finally {
+                    client.close();
+                  }
+                },
+                onDismissed: (_) => _controller.refresh(),
+                child: inner,
               );
             }),
           ],

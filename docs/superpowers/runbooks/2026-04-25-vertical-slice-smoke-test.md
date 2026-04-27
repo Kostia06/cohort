@@ -688,3 +688,22 @@ flutter run
 - **No allergies / dislikes autocomplete.**
 - **No partial-failure handling on multi-field saves** (server is single-statement so it's atomic, but if validation rejects, the whole patch is rejected).
 - **No data-export / delete account** flows.
+
+---
+
+## After Plan 18: swipe-to-delete sets + meals
+
+62. **Delete a workout set:** Open a workout with logged sets → swipe a set row left → red delete background with trash icon appears → release → set disappears from the list. Server confirms with `DELETE /v1/workout-sets/:id` returning 200.
+
+63. **Delete a meal:** On Today screen → swipe a meal row left → red delete background with trash icon appears → release → meal disappears from the list. Server confirms with `DELETE /v1/meals/:id` returning 200.
+
+64. **Auth + ownership guards:**
+    - Unauthenticated DELETE → 401.
+    - DELETE for another user's set/meal → 403 (set remains in DB).
+    - DELETE for unknown ID → 404.
+
+## Plan 18 known limitations
+
+- **No undo / snackbar with Undo** — dismissed rows are gone immediately.
+- **No optimistic removal** — list refreshes after successful API call.
+- **No bulk delete** — one row at a time.

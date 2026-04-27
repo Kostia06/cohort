@@ -184,6 +184,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   }
 
   Widget _setRow(Map<String, dynamic> s) {
+    final setId = (s['set_id'] as String?) ?? '';
     final exercise = (s['exercise'] as String?) ?? '';
     final reps = s['reps'];
     final weight = s['weight_kg'];
@@ -193,7 +194,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     if (reps != null) parts.add('$reps reps');
     if (weight != null) parts.add('$weight kg');
     if (rpe != null) parts.add('RPE $rpe');
-    return Padding(
+    final inner = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
@@ -202,6 +203,30 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           if (parts.isNotEmpty) Text(parts.join(' · '), style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
+    );
+    return Dismissible(
+      key: ValueKey('set-$setId'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        color: Theme.of(context).colorScheme.errorContainer,
+        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onErrorContainer),
+      ),
+      confirmDismiss: (_) async {
+        final client = ApiClient(baseUrl: widget.settings.baseUrl, jwt: widget.settings.jwt);
+        try {
+          await client.deleteSet(setId);
+          return true;
+        } catch (e) {
+          if (mounted) setState(() => _error = e.toString());
+          return false;
+        } finally {
+          client.close();
+        }
+      },
+      onDismissed: (_) => _refresh(),
+      child: inner,
     );
   }
 
