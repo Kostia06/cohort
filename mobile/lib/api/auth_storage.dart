@@ -4,6 +4,7 @@ import '../config/app_config.dart';
 class AuthStorage {
   static const _kJwt = 'jwt';
   static const _kBaseUrl = 'baseUrl';
+  static const _kLastSyncAt = 'lastSyncAtMs';
 
   Future<String?> readJwt() async {
     final prefs = await SharedPreferences.getInstance();
@@ -28,5 +29,15 @@ class AuthStorage {
   Future<void> writeBaseUrl(String baseUrl) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kBaseUrl, baseUrl);
+  }
+
+  Future<int?> readLastSyncAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_kLastSyncAt);
+  }
+
+  Future<void> writeLastSyncAt(int millisecondsSinceEpoch) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kLastSyncAt, millisecondsSinceEpoch);
   }
 }
