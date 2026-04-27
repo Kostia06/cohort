@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
+import 'history_screen.dart';
 import 'settings_screen.dart';
 import 'sync_screen.dart';
 import 'today_screen.dart';
@@ -23,9 +24,10 @@ class _HomeShellState extends State<HomeShell> {
     final pages = [
       TodayScreen(settings: widget.settings, autoSync: widget.autoSync),
       ChatScreen(settings: widget.settings),
+      HistoryScreen(settings: widget.settings),
       SyncScreen(settings: widget.settings),
     ];
-    final titles = ['Today', 'Chat', 'Sync'];
+    final titles = ['Today', 'Chat', 'History', 'Sync'];
 
     return Scaffold(
       appBar: AppBar(
@@ -48,6 +50,7 @@ class _HomeShellState extends State<HomeShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.today_outlined), label: 'Today'),
           NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
+          NavigationDestination(icon: Icon(Icons.history_outlined), label: 'History'),
           NavigationDestination(icon: Icon(Icons.health_and_safety_outlined), label: 'Sync'),
         ],
       ),

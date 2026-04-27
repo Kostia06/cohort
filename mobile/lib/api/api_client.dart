@@ -116,6 +116,18 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> fetchRecentStats({int days = 7}) async {
+    final uri = Uri.parse('$baseUrl/v1/stats/recent?days=$days');
+    final req = await _http.getUrl(uri);
+    req.headers.set('Authorization', 'Bearer $jwt');
+    final resp = await req.close();
+    final body = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('stats/recent ${resp.statusCode}: $body');
+    }
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
   Future<String> logMeal({
     required String name,
     int? kcal,
