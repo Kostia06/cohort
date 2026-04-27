@@ -128,6 +128,24 @@ CREATE TABLE IF NOT EXISTS research_chunks (
   ordinal INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_research_chunks_paper ON research_chunks(paper_id, ordinal);
+CREATE TABLE IF NOT EXISTS community_prices (
+  upc              TEXT NOT NULL,
+  store_place_id   TEXT NOT NULL,
+  price            REAL NOT NULL,
+  currency         TEXT NOT NULL DEFAULT 'CAD',
+  submitted_by     TEXT NOT NULL,
+  submitted_at     INTEGER NOT NULL,
+  PRIMARY KEY (upc, store_place_id, submitted_at)
+);
+CREATE INDEX IF NOT EXISTS idx_community_prices_lookup ON community_prices(upc, store_place_id, submitted_at DESC);
+CREATE TABLE IF NOT EXISTS price_estimates (
+  category         TEXT NOT NULL,
+  region           TEXT NOT NULL,
+  price            REAL NOT NULL,
+  currency         TEXT NOT NULL DEFAULT 'CAD',
+  unit             TEXT NOT NULL,
+  PRIMARY KEY (category, region)
+);
 `;
 
 export async function applySchema(db: D1Database): Promise<void> {
@@ -136,5 +154,5 @@ export async function applySchema(db: D1Database): Promise<void> {
 
 export async function resetDb(db: D1Database): Promise<void> {
   await applySchema(db);
-  await db.exec('DELETE FROM research_chunks; DELETE FROM research_summaries; DELETE FROM research_papers; DELETE FROM plans; DELETE FROM workouts; DELETE FROM meals; DELETE FROM readiness_daily; DELETE FROM chat_tool_calls; DELETE FROM chat_turns; DELETE FROM chat_threads; DELETE FROM users;');
+  await db.exec('DELETE FROM community_prices; DELETE FROM price_estimates; DELETE FROM research_chunks; DELETE FROM research_summaries; DELETE FROM research_papers; DELETE FROM plans; DELETE FROM workouts; DELETE FROM meals; DELETE FROM readiness_daily; DELETE FROM chat_tool_calls; DELETE FROM chat_turns; DELETE FROM chat_threads; DELETE FROM users;');
 }

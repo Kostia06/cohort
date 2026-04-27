@@ -1,0 +1,22 @@
+[
+  { "category": "rolled_oats", "region": "calgary", "price": 4.99, "currency": "CAD", "unit": "1 kg" },
+  { "category": "chicken_breast", "region": "calgary", "price": 14.99, "currency": "CAD", "unit": "1 kg" },
+  { "category": "eggs_dozen", "region": "calgary", "price": 4.49, "currency": "CAD", "unit": "12 ct" },
+  { "category": "milk_2pct", "region": "calgary", "price": 4.99, "currency": "CAD", "unit": "2 L" },
+  { "category": "ground_beef_lean", "region": "calgary", "price": 10.99, "currency": "CAD", "unit": "1 kg" },
+  { "category": "rice_white", "region": "calgary", "price": 3.99, "currency": "CAD", "unit": "1 kg" },
+  { "category": "rice_brown", "region": "calgary", "price": 5.49, "currency": "CAD", "unit": "1 kg" },
+  { "category": "pasta_dry", "region": "calgary", "price": 2.99, "currency": "CAD", "unit": "500 g" },
+  { "category": "bread_whole_wheat", "region": "calgary", "price": 3.99, "currency": "CAD", "unit": "1 loaf" },
+  { "category": "bananas", "region": "calgary", "price": 1.69, "currency": "CAD", "unit": "1 kg" },
+  { "category": "apples", "region": "calgary", "price": 4.49, "currency": "CAD", "unit": "1 kg" },
+  { "category": "broccoli", "region": "calgary", "price": 3.99, "currency": "CAD", "unit": "1 kg" },
+  { "category": "spinach", "region": "calgary", "price": 4.49, "currency": "CAD", "unit": "454 g" },
+  { "category": "olive_oil", "region": "calgary", "price": 11.99, "currency": "CAD", "unit": "1 L" },
+  { "category": "peanut_butter", "region": "calgary", "price": 6.99, "currency": "CAD", "unit": "750 g" },
+  { "category": "greek_yogurt", "region": "calgary", "price": 6.49, "currency": "CAD", "unit": "750 g" },
+  { "category": "salmon_fillet", "region": "calgary", "price": 24.99, "currency": "CAD", "unit": "1 kg" },
+  { "category": "tofu_firm", "region": "calgary", "price": 3.49, "currency": "CAD", "unit": "350 g" },
+  { "category": "almonds_raw", "region": "calgary", "price": 14.99, "currency": "CAD", "unit": "500 g" },
+  { "category": "protein_powder_whey", "region": "calgary", "price": 49.99, "currency": "CAD", "unit": "2 lb" }
+]
