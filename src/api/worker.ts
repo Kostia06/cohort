@@ -6,6 +6,7 @@ import { handleHealthKitSync } from './healthkit-sync';
 import { handleMealCreate } from './meals-create';
 import { handlePlansToday } from './plans-today';
 import { handleWorkoutUpdate } from './workouts-update';
+import { handleStatsRecent } from './stats-recent';
 export { UserAgentDO } from '../do/user-agent-do';
 
 const JANITOR_CRON = '*/5 * * * *';
@@ -92,6 +93,17 @@ export default {
         return Response.json({ error: result.reason ?? 'failed' }, { status: result.status ?? 500 });
       }
       return Response.json({ meal_id: result.meal_id });
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/stats/recent') {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
+      const days = Number(url.searchParams.get('days') ?? '7');
+      const userRow = await env.DB.prepare(`SELECT timezone FROM users WHERE user_id = ?`)
+        .bind(userId).first<{ timezone: string }>();
+      const timezone = userRow?.timezone ?? 'UTC';
+      const result = await handleStatsRecent({ db: env.DB, userId, now: Date.now(), days, timezone });
+      return Response.json(result);
     }
     if (req.method === 'POST' && url.pathname === '/v1/healthkit/sync') {
       const auth = await authenticateRequest(req, env);
