@@ -1,0 +1,20 @@
+name = "cohort-research"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cohort"
+database_id = "00000000-0000-0000-0000-000000000001"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "cohort-research"
+
+[[r2_buckets]]
+binding = "RESEARCH_BUCKET"
+bucket_name = "cohort-research"
+
+[ai]
+binding = "AI"
