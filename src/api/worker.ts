@@ -9,6 +9,7 @@ import { handleWorkoutUpdate } from './workouts-update';
 import { handleStatsRecent } from './stats-recent';
 import { handleCreateSet, handleGetWorkout } from './workout-sets';
 import { handleMeGet, handleMeUpdate } from './me';
+import { handleDeleteMeal, handleDeleteSet } from './delete-handlers';
 export { UserAgentDO } from '../do/user-agent-do';
 
 const JANITOR_CRON = '*/5 * * * *';
@@ -139,6 +140,22 @@ export default {
       if (auth instanceof Response) return auth;
       const body = await req.json<any>();
       const r = await handleMeUpdate({ db: env.DB, userId: auth, input: body });
+      if (!r.ok) return Response.json({ error: r.reason ?? 'failed' }, { status: r.status ?? 500 });
+      return Response.json({ ok: true });
+    }
+    if (req.method === 'DELETE' && url.pathname.startsWith('/v1/workout-sets/')) {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const setId = url.pathname.slice('/v1/workout-sets/'.length);
+      const r = await handleDeleteSet({ db: env.DB, userId: auth, setId });
+      if (!r.ok) return Response.json({ error: r.reason ?? 'failed' }, { status: r.status ?? 500 });
+      return Response.json({ ok: true });
+    }
+    if (req.method === 'DELETE' && url.pathname.startsWith('/v1/meals/')) {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const mealId = url.pathname.slice('/v1/meals/'.length);
+      const r = await handleDeleteMeal({ db: env.DB, userId: auth, mealId });
       if (!r.ok) return Response.json({ error: r.reason ?? 'failed' }, { status: r.status ?? 500 });
       return Response.json({ ok: true });
     }
