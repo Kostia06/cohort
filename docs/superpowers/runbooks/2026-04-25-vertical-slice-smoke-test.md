@@ -706,4 +706,20 @@ flutter run
 
 - **No undo / snackbar with Undo** — dismissed rows are gone immediately.
 - **No optimistic removal** — list refreshes after successful API call.
+
+---
+
+## After Plan 19: streaks
+
+65. **Empty user:** streaks row hidden when all three are 0.
+
+66. **Mixed streaks:** workout-logged 3 days running, meals 7 days running, sync 12 days → three chips at the top of Today.
+
+67. **Streak resets when today is missed:** if the user hasn't logged a workout today, the workout streak shows 0 (not yesterday's 5).
+
+## Plan 19 known limitations
+
+- **Today-anchored only** — past streaks (yesterday-3, last week's run) are not shown.
+- **No longest-ever** — current only.
+- **No "almost-broken" warning** — could be a notification feature.
 - **No bulk delete** — one row at a time.
