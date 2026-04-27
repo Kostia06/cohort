@@ -11,9 +11,29 @@ export default defineWorkersConfig({
           durableObjects: { USER_AGENT_DO: 'UserAgentDO' },
           serviceBindings: {
             MOCK_GATEWAY: 'mock-gateway',
-            RESEARCH: 'mock-research'
+            RESEARCH: 'mock-research',
+            GROCERY: 'mock-grocery'
           },
           workers: [{
+            name: 'mock-grocery',
+            modules: true,
+            script: `export default { async fetch(req) {
+    const url = new URL(req.url);
+    if (url.pathname === '/search') {
+      return new Response(JSON.stringify({
+        results: [{
+          query: 'rolled oats',
+          matches: [{
+            product: { name: 'Mock Oats', size: '1 kg', category: 'rolled_oats', source: 'open_food_facts', source_id: 'm1' },
+            store: { place_id: 'p1', name: 'Mock Store', lat: 0, lng: 0, address: '', chain: null },
+            price: { amount: 4.99, currency: 'CAD', source: 'estimate' }
+          }]
+        }]
+      }), { headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  } };`
+          }, {
             name: 'mock-research',
             modules: true,
             script: `export default { async fetch(req) {
