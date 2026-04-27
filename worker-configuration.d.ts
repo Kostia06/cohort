@@ -5,5 +5,6 @@ declare module 'cloudflare:test' {
     ANTHROPIC_API_KEY: string;
     AI_GATEWAY_URL: string;
     JWT_SECRET: string;
+    RESEARCH: Fetcher;
   }
 }

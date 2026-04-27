@@ -80,8 +80,9 @@ export class UserAgentDO {
         db: this.env.DB,
         ai,
         tools: buildToolRegistry(),
-        clock: () => Date.now()
-      };
+        clock: () => Date.now(),
+        bindings: { research: this.env.RESEARCH }
+      } as any;
 
       const threadId = `batch-${new Date().toISOString().slice(0, 10)}`;
 
@@ -147,8 +148,9 @@ export class UserAgentDO {
       db: this.env.DB,
       ai,
       tools: buildToolRegistry(),
-      clock: () => Date.now()
-    };
+      clock: () => Date.now(),
+      bindings: { research: this.env.RESEARCH }
+    } as any;
 
     await this.setUserId(userId);
     this.state.waitUntil(
