@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../state/settings_controller.dart';
+import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final SettingsController controller;
@@ -61,6 +62,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
               child: const Text('Save'),
+            ),
+            const SizedBox(height: 32),
+            const Divider(),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Edit profile'),
+              subtitle: const Text('Display name, timezone, dietary preferences'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ProfileScreen(settings: widget.controller),
+                ),
+              ),
             ),
           ],
         ),
