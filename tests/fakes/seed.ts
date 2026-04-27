@@ -146,6 +146,20 @@ CREATE TABLE IF NOT EXISTS price_estimates (
   unit             TEXT NOT NULL,
   PRIMARY KEY (category, region)
 );
+CREATE TABLE IF NOT EXISTS health_samples_daily (
+  user_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  hrv_sdnn_ms REAL,
+  rhr_bpm REAL,
+  sleep_minutes INTEGER,
+  time_in_bed_minutes INTEGER,
+  active_kcal INTEGER,
+  steps INTEGER,
+  source TEXT NOT NULL DEFAULT 'healthkit',
+  ingested_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_health_samples_user_date ON health_samples_daily(user_id, date DESC);
 `;
 
 export async function applySchema(db: D1Database): Promise<void> {
@@ -154,5 +168,5 @@ export async function applySchema(db: D1Database): Promise<void> {
 
 export async function resetDb(db: D1Database): Promise<void> {
   await applySchema(db);
-  await db.exec('DELETE FROM community_prices; DELETE FROM price_estimates; DELETE FROM research_chunks; DELETE FROM research_summaries; DELETE FROM research_papers; DELETE FROM plans; DELETE FROM workouts; DELETE FROM meals; DELETE FROM readiness_daily; DELETE FROM chat_tool_calls; DELETE FROM chat_turns; DELETE FROM chat_threads; DELETE FROM users;');
+  await db.exec('DELETE FROM health_samples_daily; DELETE FROM community_prices; DELETE FROM price_estimates; DELETE FROM research_chunks; DELETE FROM research_summaries; DELETE FROM research_papers; DELETE FROM plans; DELETE FROM workouts; DELETE FROM meals; DELETE FROM readiness_daily; DELETE FROM chat_tool_calls; DELETE FROM chat_turns; DELETE FROM chat_threads; DELETE FROM users;');
 }
