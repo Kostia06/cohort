@@ -33,8 +33,11 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
       return { turnId: inserted.turnId, status: 'preflight_blocked', text: pf.cannedResponse ?? '', costUsd: 0 };
     }
 
+    const profile = await deps.db.prepare(`SELECT timezone FROM users WHERE user_id = ?`)
+      .bind(input.userId).first<{ timezone: string }>();
+    const tz = profile?.timezone ?? 'UTC';
     const [spent, cap] = await Promise.all([
-      getDailySpentCents(deps.db, input.userId, now),
+      getDailySpentCents(deps.db, input.userId, now, tz),
       getCostCapCents(deps.db, input.userId)
     ]);
     if (spent >= cap) {
