@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import '../api/auth_storage.dart';
+import '../health/auto_sync_service.dart';
+import '../state/auto_sync_controller.dart';
 import '../state/settings_controller.dart';
 import '../state/today_controller.dart';
 
 class TodayScreen extends StatefulWidget {
   final SettingsController settings;
-  const TodayScreen({super.key, required this.settings});
+  final AutoSyncController? autoSync;
+  const TodayScreen({super.key, required this.settings, this.autoSync});
 
   @override
   State<TodayScreen> createState() => _TodayScreenState();
@@ -12,6 +16,7 @@ class TodayScreen extends StatefulWidget {
 
 class _TodayScreenState extends State<TodayScreen> {
   late TodayController _controller;
+  int? _lastSyncAtMs;
 
   @override
   void initState() {
@@ -19,12 +24,27 @@ class _TodayScreenState extends State<TodayScreen> {
     _controller = TodayController(widget.settings);
     _controller.addListener(_onChange);
     _controller.refresh();
+    widget.autoSync?.addListener(_onAutoSyncChange);
+    _loadLastSync();
+  }
+
+  void _onAutoSyncChange() {
+    if (widget.autoSync?.lastResult?.status == AutoSyncStatus.synced) {
+      _controller.refresh();
+    }
+    _loadLastSync();
+  }
+
+  Future<void> _loadLastSync() async {
+    final ms = await AuthStorage().readLastSyncAt();
+    if (mounted) setState(() => _lastSyncAtMs = ms);
   }
 
   void _onChange() => setState(() {});
 
   @override
   void dispose() {
+    widget.autoSync?.removeListener(_onAutoSyncChange);
     _controller.removeListener(_onChange);
     _controller.dispose();
     super.dispose();
@@ -33,12 +53,51 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: _controller.refresh,
+      onRefresh: () async {
+        await widget.autoSync?.run();
+        await _controller.refresh();
+      },
       child: ListView(
         padding: const EdgeInsets.all(16),
-        children: _buildSections(context),
+        children: [
+          ..._buildSections(context),
+          const SizedBox(height: 16),
+          _syncFooter(),
+        ],
       ),
     );
+  }
+
+  Widget _syncFooter() {
+    final running = widget.autoSync?.running ?? false;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sync, size: 16, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(width: 6),
+            Text(
+              running ? 'Syncing…' : 'Last sync: ${_formatLastSync(_lastSyncAtMs)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatLastSync(int? ms) {
+    if (ms == null) return 'never';
+    final last = DateTime.fromMillisecondsSinceEpoch(ms);
+    final diff = DateTime.now().difference(last);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   List<Widget> _buildSections(BuildContext context) {

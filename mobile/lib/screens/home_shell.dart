@@ -3,11 +3,13 @@ import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'sync_screen.dart';
 import 'today_screen.dart';
+import '../state/auto_sync_controller.dart';
 import '../state/settings_controller.dart';
 
 class HomeShell extends StatefulWidget {
   final SettingsController settings;
-  const HomeShell({super.key, required this.settings});
+  final AutoSyncController autoSync;
+  const HomeShell({super.key, required this.settings, required this.autoSync});
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -19,7 +21,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      TodayScreen(settings: widget.settings),
+      TodayScreen(settings: widget.settings, autoSync: widget.autoSync),
       ChatScreen(settings: widget.settings),
       SyncScreen(settings: widget.settings),
     ];

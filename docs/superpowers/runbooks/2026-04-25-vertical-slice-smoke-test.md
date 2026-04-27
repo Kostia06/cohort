@@ -563,3 +563,23 @@ flutter run
 - **No interactivity** — tap-to-start workout, mark workout done, log meal from Today, etc. are not yet wired. Planned for Plan 12+.
 - **No multi-day timeline** — only "today". Yesterday's reflection / tomorrow's preview is a future plan.
 - **Latest assistant message is uncurated** — picks the latest `chat_turn` regardless of thread. Multi-thread filtering is a future plan.
+
+---
+
+## After Plan 12: auto-sync on launch
+
+39. **First launch (no JWT):** the auto-sync fires and exits immediately with `notConfigured`. The Today footer shows "Last sync: never".
+
+40. **Configured + recent sync:** open the app within 6h of the last sync. Auto-sync runs and immediately returns `skipped` — no extra HealthKit prompt, no server hit. Footer shows the relative age ("23m ago").
+
+41. **Configured + stale sync:** wait >6h, then open. Auto-sync runs:
+    - First-ever launch with permission: iOS shows the HealthKit permission prompt.
+    - Subsequent launches: it reads silently. Footer flips to "Syncing…" briefly, then to "just now" with the readiness card refreshed.
+
+42. **Pull-to-refresh:** dragging on the Today list also kicks off `autoSync.run()` + a `today.refresh()`, even if not stale.
+
+## Plan 12 known limitations
+
+- **Not true background** — user must open the app. iOS background HealthKit observers / `BGAppRefreshTask` are deferred (require new entitlements + careful battery testing).
+- **No retry on transient network errors** — a failed sync just shows the previous timestamp; user pulls to refresh.
+- **No conflict resolution** — multiple devices on the same date overwrite last-write-wins (server-side).
