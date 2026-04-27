@@ -91,6 +91,43 @@ CREATE TABLE IF NOT EXISTS plans (
   generated_by TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_plans_user_date ON plans(user_id, date DESC);
+CREATE TABLE IF NOT EXISTS research_papers (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  title TEXT,
+  authors_json TEXT,
+  year INTEGER,
+  journal TEXT,
+  doi TEXT,
+  domain TEXT,
+  study_type TEXT,
+  evidence_grade TEXT,
+  population_json TEXT,
+  key_findings_json TEXT,
+  limitations_json TEXT,
+  pdf_r2_key TEXT,
+  uploaded_by TEXT NOT NULL,
+  added_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_research_papers_status_added ON research_papers(status, added_at DESC);
+CREATE INDEX IF NOT EXISTS idx_research_papers_domain ON research_papers(domain);
+CREATE TABLE IF NOT EXISTS research_summaries (
+  paper_id TEXT NOT NULL,
+  level TEXT NOT NULL,
+  body TEXT NOT NULL,
+  reading_minutes INTEGER NOT NULL,
+  generated_at INTEGER NOT NULL,
+  PRIMARY KEY (paper_id, level)
+);
+CREATE TABLE IF NOT EXISTS research_chunks (
+  id TEXT PRIMARY KEY,
+  paper_id TEXT NOT NULL,
+  section TEXT NOT NULL,
+  text TEXT NOT NULL,
+  ordinal INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_research_chunks_paper ON research_chunks(paper_id, ordinal);
 `;
 
 export async function applySchema(db: D1Database): Promise<void> {
@@ -99,5 +136,5 @@ export async function applySchema(db: D1Database): Promise<void> {
 
 export async function resetDb(db: D1Database): Promise<void> {
   await applySchema(db);
-  await db.exec('DELETE FROM plans; DELETE FROM workouts; DELETE FROM meals; DELETE FROM readiness_daily; DELETE FROM chat_tool_calls; DELETE FROM chat_turns; DELETE FROM chat_threads; DELETE FROM users;');
+  await db.exec('DELETE FROM research_chunks; DELETE FROM research_summaries; DELETE FROM research_papers; DELETE FROM plans; DELETE FROM workouts; DELETE FROM meals; DELETE FROM readiness_daily; DELETE FROM chat_tool_calls; DELETE FROM chat_turns; DELETE FROM chat_threads; DELETE FROM users;');
 }

@@ -10,9 +10,24 @@ export default defineWorkersConfig({
           d1Databases: ['DB'],
           durableObjects: { USER_AGENT_DO: 'UserAgentDO' },
           serviceBindings: {
-            MOCK_GATEWAY: 'mock-gateway'
+            MOCK_GATEWAY: 'mock-gateway',
+            RESEARCH: 'mock-research'
           },
           workers: [{
+            name: 'mock-research',
+            modules: true,
+            script: `export default { async fetch(req) {
+    const url = new URL(req.url);
+    if (url.pathname === '/search') {
+      return new Response(JSON.stringify({ matches: [
+        { paper: { id: 'p1', title: 'Mock paper', year: 2024, domain: 'training', evidence_grade: 'B' },
+          chunk: { id: 'p1:0', section: 'results', text: 'mock result chunk', score: 0.9 },
+          summaries: { tldr: 'mock summary' } }
+      ] }), { headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  } };`
+          }, {
             name: 'mock-gateway',
             modules: true,
             script: `

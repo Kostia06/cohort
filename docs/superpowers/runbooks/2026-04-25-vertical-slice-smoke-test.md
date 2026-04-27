@@ -292,3 +292,79 @@ Set `JWT_SECRET` as a dev secret: `wrangler secret put JWT_SECRET` (interactive)
 | Batch turn | ✗ | ✗ | manual | cron | cron |
 | Janitor | ✗ | ✗ | ✗ | ✓ | ✓ |
 | Auth | X-User-Id | X-User-Id | X-User-Id | X-User-Id | JWT (HS256) |
+
+---
+
+## After Plan 6: research-worker
+
+**Setup (one-time, requires Cloudflare auth):**
+```
+wrangler vectorize create cohort-research --dimensions=1024 --metric=cosine
+wrangler r2 bucket create cohort-research
+wrangler secret put ADMIN_SECRET --config services/research/wrangler.toml
+wrangler secret put ANTHROPIC_API_KEY --config services/research/wrangler.toml
+wrangler deploy --config services/research/wrangler.toml
+```
+
+Then re-deploy the api Worker so the service binding takes effect:
+```
+wrangler deploy
+```
+
+21. **Upload a paper:**
+    ```
+    curl -X POST https://cohort-research.<your-subdomain>.workers.dev/papers \
+      -H "X-Admin-Secret: $ADMIN_SECRET" \
+      -H "X-Hint-Domain: training" \
+      -H "Content-Type: application/pdf" \
+      --data-binary @path/to/paper.pdf
+    ```
+    Expected response: `{"paper_id":"...","status":"ready","chunk_count":N}`. Takes 30-60s for one paper.
+
+    Check D1:
+    ```
+    wrangler d1 execute cohort --command "SELECT id, title, status, evidence_grade FROM research_papers ORDER BY added_at DESC LIMIT 5;"
+    ```
+
+22. **Search via the agent:**
+    Send a chat that should trigger `search_research`:
+    ```
+    curl -N -X POST https://<your-api>.workers.dev/v1/chat/th1 \
+      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+      -d '{"message":"any research on creatine timing?"}'
+    ```
+    Expected SSE: `tool_call_start` for `search_research`, `tool_call_result` with a summary, then text from the model citing the paper title in its response.
+
+23. **Direct search test:**
+    Bypass the agent and call the research worker directly:
+    ```
+    curl -X POST https://cohort-research.<your-subdomain>.workers.dev/search \
+      -H "Content-Type: application/json" \
+      -d '{"query":"creatine timing","k":3}'
+    ```
+    Expected: JSON with up to 3 matches, each with paper metadata + chunk text + summaries.
+
+## Plan 6 known limitations (deferred)
+
+- **Synchronous ingest** — `/papers` blocks for ~30-60s while extracting + embedding. v2 will move to a Cloudflare Queue.
+- **No OCR fallback** — scanned PDFs return `status='needs_ocr'`; admin must re-upload with text-extracted version.
+- **Vectorize index is shared across users** — papers are global. Multi-tenant access control deferred.
+- **Summary regeneration endpoint** is missing; tweaking the prompts requires re-uploading the paper.
+- **No admin UI** — `curl` is the only upload path.
+
+## Final P1 → P6 capability matrix
+
+| Capability | P1 | P2 | P3 | P4 | P5 | P6 |
+|---|---|---|---|---|---|---|
+| Streaming chat | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Tools | 1 | 1 | 9 | 9 | 9 | 9 |
+| Preflight + post-review | partial | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Anthropic 5xx retry | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Cancel | ✗ | DO-wide | DO-wide | per-thread | per-thread | per-thread |
+| SSE replay | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Daily cost cap | ✗ | rolling 24h | rolling 24h | calendar-day | calendar-day | calendar-day |
+| Batch turn | ✗ | ✗ | manual | cron | cron | cron |
+| Janitor | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ |
+| Auth | X-User-Id | X-User-Id | X-User-Id | X-User-Id | JWT (HS256) | JWT (HS256) |
+| `search_groceries` | ✗ | ✗ | stub | stub | stub | stub |
+| `search_research` | ✗ | ✗ | stub | stub | stub | **real (Vectorize RAG)** |

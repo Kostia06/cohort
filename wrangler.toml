@@ -21,3 +21,7 @@ AI_GATEWAY_URL = "https://gateway.ai.cloudflare.com/v1/REPLACE_ACCT/REPLACE_GW/a
 
 [triggers]
 crons = ["*/5 * * * *", "0 * * * *"]
+
+[[services]]
+binding = "RESEARCH"
+service = "cohort-research"

@@ -6,6 +6,7 @@ export interface Env {
   JWT_SECRET: string;
   /** Optional test service binding — when present, used as the fetch impl for AI gateway calls. */
   MOCK_GATEWAY?: { fetch: typeof fetch };
+  RESEARCH: Fetcher;
 }
 
 export interface RuntimeDeps {
