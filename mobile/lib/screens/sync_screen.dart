@@ -78,9 +78,7 @@ class _SyncScreenState extends State<SyncScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('HealthKit Sync (test)')),
-      body: Padding(
+    return Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -134,7 +132,6 @@ class _SyncScreenState extends State<SyncScreen> {
             ],
           ],
         ),
-      ),
-    );
+      );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'api/auth_storage.dart';
-import 'screens/chat_screen.dart';
+import 'screens/home_shell.dart';
 import 'state/settings_controller.dart';
 
 void main() {
@@ -63,6 +63,6 @@ class _BootstrapState extends State<_Bootstrap> {
     if (!_settings.loaded) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    return ChatScreen(settings: _settings);
+    return HomeShell(settings: _settings);
   }
 }
