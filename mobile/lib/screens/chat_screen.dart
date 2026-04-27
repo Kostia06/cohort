@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../state/chat_controller.dart';
 import '../state/settings_controller.dart';
 import '../widgets/message_bubble.dart';
-import 'settings_screen.dart';
-import 'sync_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final SettingsController settings;
@@ -45,31 +43,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cohort'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.health_and_safety_outlined),
-            tooltip: 'Sync',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => SyncScreen(settings: widget.settings),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => SettingsScreen(controller: widget.settings),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
+    return SafeArea(
         child: Column(
           children: [
             if (_chat.error != null)
@@ -122,8 +96,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   void _send(String text) {

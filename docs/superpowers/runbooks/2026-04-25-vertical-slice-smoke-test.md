@@ -544,3 +544,22 @@ flutter run
 - **iOS only** — Android Health Connect is supported by the `health` package but not configured here.
 - **Last night only** — no historical backfill API. Bulk import would loop the per-day endpoint.
 - **No source preference** — if Apple Watch and a third-party app both write HRV, we use whichever the most recent sample comes from.
+
+---
+
+## After Plan 11: Today view
+
+36. **Empty state:** open the app on a fresh user. Today tab shows placeholders ("No reading yet today", "No workout proposed yet", "No meals logged in the last 24 hours").
+
+37. **Populated state:**
+    - Sync HealthKit (Sync tab → Read from Health → Sync today). After 14d of history this returns a real readiness band.
+    - Run the batch turn (`curl -X POST .../v1/run-batch/u1 -H "Authorization: Bearer $TOKEN"` or wait until 5am local).
+    - Pull-to-refresh on the Today tab. Readiness card shows score + band, Today's plan card shows the proposed workout, Latest from Cohort card shows the assistant's batch message.
+
+38. **Auth check:** Today tab displays a "Configure JWT" message if settings aren't set.
+
+## Plan 11 known limitations
+
+- **No interactivity** — tap-to-start workout, mark workout done, log meal from Today, etc. are not yet wired. Planned for Plan 12+.
+- **No multi-day timeline** — only "today". Yesterday's reflection / tomorrow's preview is a future plan.
+- **Latest assistant message is uncurated** — picks the latest `chat_turn` regardless of thread. Multi-thread filtering is a future plan.

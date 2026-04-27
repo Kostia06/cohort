@@ -87,6 +87,19 @@ class ApiClient {
     return jsonDecode(body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> fetchToday({String? date}) async {
+    final dateParam = date == null ? '' : '?date=$date';
+    final uri = Uri.parse('$baseUrl/v1/plans/today$dateParam');
+    final req = await _http.getUrl(uri);
+    req.headers.set('Authorization', 'Bearer $jwt');
+    final resp = await req.close();
+    final body = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('plans/today ${resp.statusCode}: $body');
+    }
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
   void close() => _http.close(force: true);
 }
 

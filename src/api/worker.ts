@@ -3,6 +3,7 @@ import { verifyJwt } from '../auth/jwt';
 import { runJanitor } from '../cron/janitor';
 import { runBatchTrigger } from '../cron/batch-trigger';
 import { handleHealthKitSync } from './healthkit-sync';
+import { handlePlansToday } from './plans-today';
 export { UserAgentDO } from '../do/user-agent-do';
 
 const JANITOR_CRON = '*/5 * * * *';
@@ -57,6 +58,14 @@ export default {
       const id = env.USER_AGENT_DO.idFromName(userId);
       const stub = env.USER_AGENT_DO.get(id);
       return stub.fetch(new Request('https://do/run-batch', { method: 'POST' }));
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/plans/today') {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
+      const date = url.searchParams.get('date') ?? new Date().toISOString().slice(0, 10);
+      const result = await handlePlansToday({ userId, date, now: Date.now(), db: env.DB });
+      return Response.json(result);
     }
     if (req.method === 'POST' && url.pathname === '/v1/healthkit/sync') {
       const auth = await authenticateRequest(req, env);
