@@ -115,6 +115,7 @@ class _TodayScreenState extends State<TodayScreen> {
       return [const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('Pull to refresh.')))];
     }
     return [
+      _streaksRow(),
       _readinessCard(data['readiness'] as Map<String, dynamic>?),
       const SizedBox(height: 16),
       _workoutsCard((data['planned_workouts'] as List?) ?? const []),
@@ -123,6 +124,46 @@ class _TodayScreenState extends State<TodayScreen> {
       const SizedBox(height: 16),
       _latestMessageCard(data['latest_assistant_message'] as Map<String, dynamic>?),
     ];
+  }
+
+  Widget _streaksRow() {
+    final s = _controller.streaks;
+    if (s == null) return const SizedBox.shrink();
+    final workouts = s['workouts'] ?? 0;
+    final meals = s['meals'] ?? 0;
+    final sync = s['sync'] ?? 0;
+    if (workouts == 0 && meals == 0 && sync == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          if (workouts > 0) _streakChip(Icons.fitness_center, '$workouts-day workout'),
+          if (meals > 0) _streakChip(Icons.restaurant, '$meals-day meals'),
+          if (sync > 0) _streakChip(Icons.sync, '$sync-day sync'),
+        ],
+      ),
+    );
+  }
+
+  Widget _streakChip(IconData icon, String label) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text('🔥 $label', style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
+        ],
+      ),
+    );
   }
 
   Widget _errorBanner(String message) {

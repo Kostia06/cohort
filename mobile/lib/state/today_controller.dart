@@ -5,6 +5,7 @@ import '../state/settings_controller.dart';
 class TodayController extends ChangeNotifier {
   final SettingsController settings;
   Map<String, dynamic>? data;
+  Map<String, dynamic>? streaks;
   String? error;
   bool loading = false;
 
@@ -21,7 +22,9 @@ class TodayController extends ChangeNotifier {
     notifyListeners();
     final client = ApiClient(baseUrl: settings.baseUrl, jwt: settings.jwt);
     try {
-      data = await client.fetchToday();
+      final results = await Future.wait([client.fetchToday(), client.fetchStreaks()]);
+      data = results[0];
+      streaks = results[1];
     } catch (e) {
       error = e.toString();
     } finally {
