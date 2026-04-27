@@ -153,6 +153,18 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> fetchStreaks() async {
+    final uri = Uri.parse('$baseUrl/v1/stats/streaks');
+    final r = await _http.getUrl(uri);
+    r.headers.set('Authorization', 'Bearer $jwt');
+    final resp = await r.close();
+    final body = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('streaks ${resp.statusCode}: $body');
+    }
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> fetchRecentStats({int days = 7}) async {
     final uri = Uri.parse('$baseUrl/v1/stats/recent?days=$days');
     final req = await _http.getUrl(uri);
