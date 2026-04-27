@@ -368,3 +368,66 @@ wrangler deploy
 | Auth | X-User-Id | X-User-Id | X-User-Id | X-User-Id | JWT (HS256) | JWT (HS256) |
 | `search_groceries` | ✗ | ✗ | stub | stub | stub | stub |
 | `search_research` | ✗ | ✗ | stub | stub | stub | **real (Vectorize RAG)** |
+
+---
+
+## After Plan 7: grocery-worker
+
+**Setup (one-time):**
+```
+wrangler kv:namespace create GROCERY_KV
+# paste returned id into services/grocery/wrangler.toml
+wrangler secret put GOOGLE_PLACES_KEY --config services/grocery/wrangler.toml
+wrangler secret put USDA_API_KEY --config services/grocery/wrangler.toml
+wrangler deploy --config services/grocery/wrangler.toml
+wrangler deploy
+```
+
+**Seed Calgary price estimates:**
+```
+node -e 'const e=require("./services/grocery/src/seed-estimates.json"); console.log(e.map(x=>"INSERT INTO price_estimates (category, region, price, currency, unit) VALUES ('"'"'"+x.category+"'"'"','"'"'"+x.region+"'"'"',"+x.price+",'"'"'"+x.currency+"'"'"','"'"'"+x.unit+"'"'"');").join("\n"))' | tee /tmp/seed.sql
+wrangler d1 execute cohort --remote --file=/tmp/seed.sql
+```
+
+24. **Direct grocery search:**
+    ```
+    curl -X POST https://cohort-grocery.<your>.workers.dev/search \
+      -H "Content-Type: application/json" \
+      -d '{"items":["rolled oats","chicken breast"],"lat":51.05,"lng":-114.07,"radius_m":5000,"region":"calgary"}'
+    ```
+    Expected: JSON `{results: [{query, matches: [{product, store, price}, ...]}]}`. Each price has `source: 'estimate'` for v1.
+
+25. **Search via the agent:**
+    ```
+    curl -N -X POST https://<your-api>.workers.dev/v1/chat/th1 \
+      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+      -d '{"message":"what are oats and chicken going for nearby? im at 51.05, -114.07"}'
+    ```
+    Expected SSE: `tool_call_start` for `search_groceries`, `tool_call_result` summary, then text mentioning a couple stores + estimated prices.
+
+26. **Community price submission:** not yet exposed; deferred to a future plan.
+
+## Plan 7 known limitations (deferred)
+
+- **No real-time chain prices** — Calgary chains have no public APIs in v1. Static estimates + (future) community submissions only.
+- **Category mapping is hardcoded** in `inferCategory`. Extending requires editing the function. LLM-based mapping is a future plan.
+- **No store-level prices** — each store gets the same regional estimate.
+- **No haversine sort** — stores returned in Google's order; not sorted by distance.
+- **No per-tenant data** — papers and grocery results are global.
+
+## Final P1 → P7 capability matrix
+
+| Capability | P1 | P2 | P3 | P4 | P5 | P6 | P7 |
+|---|---|---|---|---|---|---|---|
+| Streaming chat | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Tools | 1 | 1 | 9 | 9 | 9 | 9 | 9 |
+| Preflight + post-review | partial | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Anthropic 5xx retry | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Cancel | ✗ | DO-wide | DO-wide | per-thread | per-thread | per-thread | per-thread |
+| SSE replay | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Daily cost cap | ✗ | rolling 24h | rolling 24h | calendar-day | calendar-day | calendar-day | calendar-day |
+| Batch turn | ✗ | ✗ | manual | cron | cron | cron | cron |
+| Janitor | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ |
+| Auth | X-User-Id | X-User-Id | X-User-Id | X-User-Id | JWT (HS256) | JWT (HS256) | JWT (HS256) |
+| `search_research` | ✗ | ✗ | stub | stub | stub | **real** | real |
+| `search_groceries` | ✗ | ✗ | stub | stub | stub | stub | **real (Calgary v1)** |
