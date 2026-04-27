@@ -583,3 +583,25 @@ flutter run
 - **Not true background** — user must open the app. iOS background HealthKit observers / `BGAppRefreshTask` are deferred (require new entitlements + careful battery testing).
 - **No retry on transient network errors** — a failed sync just shows the previous timestamp; user pulls to refresh.
 - **No conflict resolution** — multiple devices on the same date overwrite last-write-wins (server-side).
+
+---
+
+## After Plan 13: workout detail + complete
+
+43. **Tap a planned workout:**
+    From the Today tab, tap the workout row. The Workout detail screen opens showing kind, duration, RPE, status chip.
+
+44. **Mark complete:**
+    Tap "Mark complete". The status flips to `logged` (server-side), the screen pops, and the Today list refreshes (the workout no longer appears under "Today's plan" since the query filters status='planned').
+
+45. **Skip:**
+    Tap "Skip" on the detail screen — status flips to `skipped`. Same pop + refresh.
+
+46. **Cross-user 403 sanity check:** trying to PATCH another user's workout returns 403 (test covers this server-side).
+
+## Plan 13 known limitations
+
+- **No set logging** — only the workout-level status change. Reps × weight per set is its own future plan.
+- **No undo from the UI** — once marked, only a manual D1 update reverts. (Server-side, you can PATCH back to 'planned' if needed.)
+- **No timer / ongoing-workout state** — start time isn't tracked.
+- **No visible "logged" workouts on Today** — the Today aggregation filters to status='planned'. Logged workouts only show up via D1 / chat queries.

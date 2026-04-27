@@ -4,6 +4,7 @@ import '../health/auto_sync_service.dart';
 import '../state/auto_sync_controller.dart';
 import '../state/settings_controller.dart';
 import '../state/today_controller.dart';
+import 'workout_detail_screen.dart';
 
 class TodayScreen extends StatefulWidget {
   final SettingsController settings;
@@ -204,12 +205,26 @@ class _TodayScreenState extends State<TodayScreen> {
               final rpe = w['rpe'];
               return Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.fitness_center, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text('$kind${duration != null ? ' · ${duration}m' : ''}${rpe != null ? ' · RPE $rpe' : ''}')),
-                  ],
+                child: InkWell(
+                  onTap: () async {
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => WorkoutDetailScreen(
+                          settings: widget.settings,
+                          workout: w as Map<String, dynamic>,
+                        ),
+                      ),
+                    );
+                    if (result == true) _controller.refresh();
+                  },
+                  child: Row(
+                    children: [
+                      const Icon(Icons.fitness_center, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text('$kind${duration != null ? ' · ${duration}m' : ''}${rpe != null ? ' · RPE $rpe' : ''}')),
+                      const Icon(Icons.chevron_right, size: 18),
+                    ],
+                  ),
                 ),
               );
             }),

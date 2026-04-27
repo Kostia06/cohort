@@ -4,6 +4,7 @@ import { runJanitor } from '../cron/janitor';
 import { runBatchTrigger } from '../cron/batch-trigger';
 import { handleHealthKitSync } from './healthkit-sync';
 import { handlePlansToday } from './plans-today';
+import { handleWorkoutUpdate } from './workouts-update';
 export { UserAgentDO } from '../do/user-agent-do';
 
 const JANITOR_CRON = '*/5 * * * *';
@@ -66,6 +67,19 @@ export default {
       const date = url.searchParams.get('date') ?? new Date().toISOString().slice(0, 10);
       const result = await handlePlansToday({ userId, date, now: Date.now(), db: env.DB });
       return Response.json(result);
+    }
+    if (req.method === 'PATCH' && url.pathname.startsWith('/v1/workouts/')) {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const userId = auth;
+      const workoutId = url.pathname.slice('/v1/workouts/'.length);
+      const body = await req.json<{ status: 'planned' | 'logged' | 'skipped' }>();
+      if (!body?.status) return new Response('missing status', { status: 400 });
+      const result = await handleWorkoutUpdate({ db: env.DB, userId, workoutId, status: body.status });
+      if (!result.ok) {
+        return Response.json({ error: result.reason ?? 'failed' }, { status: result.status ?? 500 });
+      }
+      return Response.json({ ok: true });
     }
     if (req.method === 'POST' && url.pathname === '/v1/healthkit/sync') {
       const auth = await authenticateRequest(req, env);

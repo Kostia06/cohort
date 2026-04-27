@@ -100,6 +100,22 @@ class ApiClient {
     return jsonDecode(body) as Map<String, dynamic>;
   }
 
+  Future<void> updateWorkoutStatus({
+    required String workoutId,
+    required String status, // 'planned' | 'logged' | 'skipped'
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/workouts/$workoutId');
+    final req = await _http.patchUrl(uri);
+    req.headers.set('Authorization', 'Bearer $jwt');
+    req.headers.set('Content-Type', 'application/json');
+    req.add(utf8.encode(jsonEncode({'status': status})));
+    final resp = await req.close();
+    final body = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('updateWorkout ${resp.statusCode}: $body');
+    }
+  }
+
   void close() => _http.close(force: true);
 }
 
