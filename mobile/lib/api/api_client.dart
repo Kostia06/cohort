@@ -220,6 +220,30 @@ class ApiClient {
     }
   }
 
+  Future<void> deleteSet(String setId) async {
+    final uri = Uri.parse('$baseUrl/v1/workout-sets/$setId');
+    final r = await _http.deleteUrl(uri);
+    r.headers.set('Authorization', 'Bearer $jwt');
+    final resp = await r.close();
+    if (resp.statusCode != 200) {
+      final body = await resp.transform(utf8.decoder).join();
+      throw HttpException('deleteSet ${resp.statusCode}: $body');
+    }
+    await resp.drain();
+  }
+
+  Future<void> deleteMeal(String mealId) async {
+    final uri = Uri.parse('$baseUrl/v1/meals/$mealId');
+    final r = await _http.deleteUrl(uri);
+    r.headers.set('Authorization', 'Bearer $jwt');
+    final resp = await r.close();
+    if (resp.statusCode != 200) {
+      final body = await resp.transform(utf8.decoder).join();
+      throw HttpException('deleteMeal ${resp.statusCode}: $body');
+    }
+    await resp.drain();
+  }
+
   void close() => _http.close(force: true);
 }
 
