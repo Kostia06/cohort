@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Cohort reads your HRV, resting heart rate, and sleep to compute your daily readiness score. Data is sent to your private Cohort backend.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Cohort does not write to Health.</string>
 </dict>
 </plist>
