@@ -621,3 +621,22 @@ flutter run
 - **Macros are free-form** — no validation that kcal ≈ 4*P + 4*C + 9*F.
 - **No favorites / templates / recent picks**.
 - **eaten_at is always now** (no time picker yet).
+
+---
+
+## After Plan 15: history view
+
+50. **Open History tab:** the third bottom-nav tab. Pull-to-refresh. Shows the last 7 days, most-recent first.
+
+51. **Per-day card:** date + readiness score + band chip on the top row. Below: workouts (logged / planned / skipped) and meals (count · kcal).
+
+52. **Empty days:** days with no data show 0 across the board — useful to spot gaps.
+
+53. **Future range options:** the controller accepts `days: 14` etc. — UI selector deferred.
+
+## Plan 15 known limitations
+
+- **Fixed 7-day window** — the API supports up to 90 but the UI doesn't expose a picker yet.
+- **No charts / sparklines** — just numbers.
+- **No streaks / averages** — derive in a future plan.
+- **Timezone uses the user's stored timezone** — doesn't reflect travel.
