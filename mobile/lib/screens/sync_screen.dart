@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api/api_client.dart';
+import '../health/health_kit_service.dart';
 import '../state/settings_controller.dart';
 
 class SyncScreen extends StatefulWidget {
@@ -17,6 +18,8 @@ class _SyncScreenState extends State<SyncScreen> {
   final _bed = TextEditingController(text: '510');
   String? _result;
   bool _busy = false;
+  bool _readingHk = false;
+  final HealthKitService _hk = HealthKitService();
 
   @override
   void dispose() {
@@ -25,6 +28,25 @@ class _SyncScreenState extends State<SyncScreen> {
     _sleep.dispose();
     _bed.dispose();
     super.dispose();
+  }
+
+  Future<void> _readFromHealth() async {
+    setState(() => _readingHk = true);
+    try {
+      final granted = await _hk.requestPermissions();
+      if (!granted) return;
+      final reading = await _hk.readLastNight();
+      setState(() {
+        if (reading.hrvSdnnMs != null) _hrv.text = reading.hrvSdnnMs!.toStringAsFixed(1);
+        if (reading.rhrBpm != null) _rhr.text = reading.rhrBpm!.toStringAsFixed(0);
+        if (reading.sleepMinutes != null) _sleep.text = reading.sleepMinutes!.toString();
+        if (reading.timeInBedMinutes != null) _bed.text = reading.timeInBedMinutes!.toString();
+      });
+    } catch (e) {
+      setState(() => _result = 'Health read error: $e');
+    } finally {
+      setState(() => _readingHk = false);
+    }
   }
 
   Future<void> _sync() async {
@@ -63,6 +85,11 @@ class _SyncScreenState extends State<SyncScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            FilledButton.tonal(
+              onPressed: (_busy || _readingHk) ? null : _readFromHealth,
+              child: Text(_readingHk ? 'Reading…' : 'Read last night from Health'),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: _hrv,
               decoration: const InputDecoration(labelText: 'HRV SDNN (ms)'),
