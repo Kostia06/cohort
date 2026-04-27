@@ -40,7 +40,7 @@ export async function insertChatTurnStreaming(input: InsertStreamingInput): Prom
 export interface FinalizeInput {
   db: D1Database;
   turnId: string;
-  status: 'complete' | 'error' | 'cancelled' | 'preflight_blocked';
+  status: 'complete' | 'error' | 'cancelled' | 'preflight_blocked' | 'cap_exceeded';
   text: string;
   costUsd: number;
   error?: string;

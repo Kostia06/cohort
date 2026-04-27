@@ -25,11 +25,22 @@ export class UserAgentDO {
     if (req.method === 'GET' && url.pathname === '/health') {
       return Response.json({ inFlight: this.currentTurn !== null });
     }
+    if (req.method === 'POST' && url.pathname === '/cancel') {
+      return this.handleCancel();
+    }
     return new Response('not found', { status: 404 });
   }
 
   async alarm(): Promise<void> {
     // Batch path is implemented in a follow-up plan.
+  }
+
+  private handleCancel(): Response {
+    if (!this.currentTurn) {
+      return Response.json({ cancelled: false, reason: 'no in-flight turn' }, { status: 404 });
+    }
+    this.currentTurn.abortController.abort();
+    return Response.json({ cancelled: true, turn_id: this.currentTurn.turnId });
   }
 
   private async handleChat(req: Request, url: URL): Promise<Response> {

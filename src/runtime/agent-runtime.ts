@@ -1,6 +1,7 @@
 import { ulid } from 'ulid';
 import type { RuntimeDeps, TurnInput, TurnResult } from '../types';
 import { buildContext } from './build-context';
+import { getDailySpentCents, getCostCapCents } from './cost';
 import { runOrchestrator } from './orchestrator';
 import { finalizeChatTurn, insertChatTurnStreaming } from './persist';
 import { preflightSafety, postReview } from './safety';
@@ -31,6 +32,29 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
       }
       return { turnId: inserted.turnId, status: 'preflight_blocked', text: pf.cannedResponse ?? '', costUsd: 0 };
     }
+
+    const [spent, cap] = await Promise.all([
+      getDailySpentCents(deps.db, input.userId, now),
+      getCostCapCents(deps.db, input.userId)
+    ]);
+    if (spent >= cap) {
+      const inserted = await insertChatTurnStreaming({
+        db: deps.db, turnId, threadId: input.threadId, actor: 'user',
+        userText: input.message ?? null, idempotencyKey: input.idempotencyKey, now
+      });
+      const message = `You've hit today's usage cap (${cap}¢). Resets in 24h.`;
+      if (!inserted.replay) {
+        input.stream?.emit({ type: 'turn_started', data: { turn_id: inserted.turnId, ordinal: inserted.ordinal } });
+        input.stream?.emit({ type: 'text_delta', data: { chunk: message } });
+        await finalizeChatTurn({
+          db: deps.db, turnId: inserted.turnId, status: 'cap_exceeded',
+          text: message, costUsd: 0, now: deps.clock()
+        });
+        input.stream?.emit({ type: 'turn_complete', data: { turn_id: inserted.turnId, full_text: message, cost_usd: 0 } });
+        input.stream?.close();
+      }
+      return { turnId: inserted.turnId, status: 'cap_exceeded', text: message, costUsd: 0 };
+    }
   }
 
   const inserted = await insertChatTurnStreaming({
@@ -39,6 +63,27 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
     idempotencyKey: input.idempotencyKey, now
   });
   if (inserted.replay) {
+    const cached = await deps.db.prepare(
+      `SELECT status, text, cost_usd, ordinal FROM chat_turns WHERE turn_id = ?`
+    ).bind(inserted.turnId).first<{
+      status: string; text: string | null; cost_usd: number | null; ordinal: number;
+    }>();
+    if (cached && cached.status === 'complete') {
+      input.stream?.emit({ type: 'turn_started', data: { turn_id: inserted.turnId, ordinal: cached.ordinal } });
+      if (cached.text) {
+        input.stream?.emit({ type: 'text_delta', data: { chunk: cached.text } });
+      }
+      input.stream?.emit({
+        type: 'turn_complete',
+        data: { turn_id: inserted.turnId, full_text: cached.text ?? '', cost_usd: cached.cost_usd ?? 0 }
+      });
+      input.stream?.close();
+      return {
+        turnId: inserted.turnId, status: 'complete',
+        text: cached.text ?? '', costUsd: cached.cost_usd ?? 0
+      };
+    }
+    // Replay row exists but status is not 'complete'. Return a stub; future plan can wait/poll.
     return { turnId: inserted.turnId, status: 'complete', text: '', costUsd: 0 };
   }
 
@@ -69,15 +114,20 @@ export async function runTurn(input: TurnInput, deps: RuntimeDeps): Promise<Turn
       signal: input.signal
     });
 
-    await postReview(orch.text);
+    const review = await postReview(orch.text, deps.ai);
+    let finalText = orch.text;
+    if (!review.ok && review.corrigendum) {
+      input.stream?.emit({ type: 'corrigendum', data: { text: review.corrigendum } });
+      finalText = `${orch.text}\n\n${review.corrigendum}`;
+    }
 
     await finalizeChatTurn({
       db: deps.db, turnId: inserted.turnId, status: 'complete',
-      text: orch.text, costUsd: orch.costUsd, now: deps.clock()
+      text: finalText, costUsd: orch.costUsd, now: deps.clock()
     });
-    input.stream?.emit({ type: 'turn_complete', data: { turn_id: inserted.turnId, full_text: orch.text, cost_usd: orch.costUsd } });
+    input.stream?.emit({ type: 'turn_complete', data: { turn_id: inserted.turnId, full_text: finalText, cost_usd: orch.costUsd } });
     input.stream?.close();
-    return { turnId: inserted.turnId, status: 'complete', text: orch.text, costUsd: orch.costUsd };
+    return { turnId: inserted.turnId, status: 'complete', text: finalText, costUsd: orch.costUsd };
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -1,15 +1,37 @@
-import type { AIGatewayClient, AnthropicStreamEvent, StreamMessageRequest } from '../types';
+import type { AIGatewayClient, AnthropicStreamEvent, NonStreamMessageRequest, NonStreamMessageResult, StreamMessageRequest } from '../types';
 
 export interface AIGatewayConfig {
   url: string;
   apiKey: string;
   fetch?: typeof fetch;
+  retryBackoffMs?: number;
 }
 
 const MODEL = 'claude-opus-4-7';
 
+async function fetchWithRetry(
+  fetchImpl: typeof fetch,
+  url: string,
+  init: RequestInit,
+  signal: AbortSignal,
+  backoffMs: number
+): Promise<Response> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+    const resp = await fetchImpl(url, init);
+    if (resp.status >= 500 && attempt === 0) {
+      try { await resp.text(); } catch {}
+      await new Promise((r) => setTimeout(r, backoffMs));
+      continue;
+    }
+    return resp;
+  }
+  throw new Error('fetchWithRetry: exhausted attempts');
+}
+
 export function createAIGatewayClient(cfg: AIGatewayConfig): AIGatewayClient {
   const fetchImpl = cfg.fetch ?? fetch;
+  const backoffMs = cfg.retryBackoffMs ?? 1000;
 
   return {
     async *streamMessage(req: StreamMessageRequest): AsyncIterable<AnthropicStreamEvent> {
@@ -21,7 +43,7 @@ export function createAIGatewayClient(cfg: AIGatewayConfig): AIGatewayClient {
         max_tokens: req.maxTokens,
         stream: true
       };
-      const resp = await fetchImpl(`${cfg.url}/v1/messages`, {
+      const resp = await fetchWithRetry(fetchImpl, `${cfg.url}/v1/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,12 +52,49 @@ export function createAIGatewayClient(cfg: AIGatewayConfig): AIGatewayClient {
         },
         body: JSON.stringify(body),
         signal: req.signal
-      });
+      }, req.signal, backoffMs);
       if (!resp.ok || !resp.body) {
         const errText = resp.body ? await resp.text() : '';
         throw new Error(`AI Gateway ${resp.status}: ${errText}`);
       }
       yield* parseAnthropicSse(resp.body);
+    },
+
+    async call(req: NonStreamMessageRequest): Promise<NonStreamMessageResult> {
+      const body = {
+        model: req.model,
+        system: req.system,
+        messages: req.messages,
+        max_tokens: req.maxTokens,
+        stream: false
+      };
+      const resp = await fetchWithRetry(fetchImpl, `${cfg.url}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': cfg.apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify(body),
+        signal: req.signal
+      }, req.signal, backoffMs);
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        throw new Error(`AI Gateway ${resp.status}: ${errText}`);
+      }
+      const data = await resp.json() as {
+        content: Array<{ type: 'text'; text: string } | { type: string }>;
+        usage: { input_tokens: number; output_tokens: number };
+      };
+      const text = data.content
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map((b) => b.text)
+        .join('');
+      return {
+        text,
+        tokensIn: data.usage?.input_tokens ?? 0,
+        tokensOut: data.usage?.output_tokens ?? 0
+      };
     }
   };
 }

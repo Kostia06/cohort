@@ -26,7 +26,7 @@ describe('runTurn', () => {
       { type: 'message_delta', stop_reason: 'end_turn', usage: { output_tokens: 3 } },
       { type: 'message_stop' }
     ];
-    const deps = makeFakes({ db: env.DB, scripts: [script], tools: [getUserProfileTool] });
+    const deps = makeFakes({ db: env.DB, scripts: [script], tools: [getUserProfileTool], callResults: [{ text: '{"ok": true}', tokensIn: 10, tokensOut: 2 }] });
     const collector = createSseCollector();
     const r = await runTurn({
       userId: 'u1',
@@ -53,7 +53,7 @@ describe('runTurn', () => {
       { type: 'message_delta', stop_reason: 'end_turn', usage: { output_tokens: 1 } },
       { type: 'message_stop' }
     ];
-    const deps = makeFakes({ db: env.DB, scripts: [script], tools: [getUserProfileTool] });
+    const deps = makeFakes({ db: env.DB, scripts: [script], tools: [getUserProfileTool], callResults: [{ text: '{"ok": true}', tokensIn: 10, tokensOut: 2 }] });
     const collector = createSseCollector();
     const r = await runTurn({
       userId: 'u1',
@@ -65,6 +65,56 @@ describe('runTurn', () => {
       turnId: 'caller-supplied-id'
     }, deps);
     expect(r.turnId).toBe('caller-supplied-id');
+  });
+
+  it('appends corrigendum and emits SSE event when postReview flags issues', async () => {
+    const script: AnthropicStreamEvent[] = [
+      { type: 'message_start', usage: { input_tokens: 10 } },
+      { type: 'content_block_start', index: 0, block: { type: 'text' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Take 200mg of X.' } },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', stop_reason: 'end_turn', usage: { output_tokens: 5 } },
+      { type: 'message_stop' }
+    ];
+    const deps = makeFakes({
+      db: env.DB,
+      scripts: [script],
+      tools: [getUserProfileTool],
+      callResults: [{ text: '{"ok":false,"corrigendum":"Note: not medical advice."}', tokensIn: 50, tokensOut: 10 }]
+    });
+    const collector = createSseCollector();
+    const r = await runTurn({
+      userId: 'u1', threadId: 'th1', actor: 'user',
+      message: 'hi', stream: collector, signal: new AbortController().signal
+    }, deps);
+    expect(r.text).toContain('Take 200mg of X.');
+    expect(r.text).toContain('not medical advice');
+    expect(collector.events.some((e) => e.type === 'corrigendum')).toBe(true);
+  });
+
+  it('replays a completed turn from D1 on idempotency-key hit', async () => {
+    // Pre-insert a completed turn to simulate a prior run.
+    await env.DB.prepare(
+      `INSERT INTO chat_turns (turn_id, thread_id, ordinal, actor, status, user_text, text, cost_usd, idempotency_key, started_at, ended_at)
+       VALUES ('original-turn', 'th1', 0, 'user', 'complete', 'hi', 'cached response', 0.005, 'replay-key', 1, 2)`
+    ).run();
+
+    // No scripts — runTurn should NOT call the AI on replay.
+    const deps = makeFakes({ db: env.DB, scripts: [], tools: [getUserProfileTool] });
+    const collector = createSseCollector();
+
+    const r = await runTurn({
+      userId: 'u1', threadId: 'th1', actor: 'user',
+      message: 'hi', stream: collector, signal: new AbortController().signal,
+      idempotencyKey: 'replay-key'
+    }, deps);
+
+    expect(r.turnId).toBe('original-turn');
+    expect(r.text).toBe('cached response');
+    expect(r.costUsd).toBe(0.005);
+    expect(deps.ai.calls.length).toBe(0);
+    expect(collector.events.some((e) => e.type === 'turn_started')).toBe(true);
+    expect(collector.events.some((e) => e.type === 'turn_complete')).toBe(true);
   });
 
   it('blocks via preflight and persists with status preflight_blocked', async () => {
@@ -81,5 +131,28 @@ describe('runTurn', () => {
     expect(r.status).toBe('preflight_blocked');
     expect(r.text).toContain('pharmacist');
     expect(deps.ai.calls.length).toBe(0);
+  });
+
+  it('rejects with cap_exceeded when daily spend reaches the cap', async () => {
+    // Set the user cap very low and seed prior spend.
+    await env.DB.prepare(`UPDATE users SET daily_cost_cap_cents = 1 WHERE user_id = 'u1'`).run();
+    await env.DB.prepare(
+      `INSERT INTO chat_turns (turn_id, thread_id, ordinal, actor, status, cost_usd, started_at, ended_at)
+       VALUES ('past','th1',0,'user','complete',0.05,?,?)`
+    ).bind(Date.now() - 1000, Date.now() - 999).run();
+
+    const deps = makeFakes({ db: env.DB, scripts: [], tools: [] });
+    const collector = createSseCollector();
+    const r = await runTurn({
+      userId: 'u1', threadId: 'th1', actor: 'user',
+      message: 'hi', stream: collector, signal: new AbortController().signal
+    }, deps);
+
+    expect(r.status).toBe('cap_exceeded');
+    expect(r.text).toContain('cap');
+    expect(deps.ai.calls.length).toBe(0);
+    expect(collector.events.some((e) =>
+      e.type === 'text_delta' && (e.data as { chunk: string }).chunk.includes('cap')
+    )).toBe(true);
   });
 });

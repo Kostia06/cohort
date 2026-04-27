@@ -28,7 +28,7 @@ export interface TurnInput {
 
 export interface TurnResult {
   turnId: string;
-  status: 'complete' | 'error' | 'cancelled' | 'preflight_blocked';
+  status: 'complete' | 'error' | 'cancelled' | 'preflight_blocked' | 'cap_exceeded';
   text: string;
   costUsd: number;
 }
@@ -70,6 +70,7 @@ export type ToolRegistry = ReadonlyMap<string, ToolDef>;
 
 export interface AIGatewayClient {
   streamMessage(req: StreamMessageRequest): AsyncIterable<AnthropicStreamEvent>;
+  call(req: NonStreamMessageRequest): Promise<NonStreamMessageResult>;
 }
 
 export interface StreamMessageRequest {
@@ -78,6 +79,20 @@ export interface StreamMessageRequest {
   tools: AnthropicTool[];
   maxTokens: number;
   signal: AbortSignal;
+}
+
+export interface NonStreamMessageRequest {
+  model: 'claude-opus-4-7' | 'claude-haiku-4-5-20251001';
+  system: string;
+  messages: AnthropicMessage[];
+  maxTokens: number;
+  signal: AbortSignal;
+}
+
+export interface NonStreamMessageResult {
+  text: string;
+  tokensIn: number;
+  tokensOut: number;
 }
 
 export interface AnthropicMessage {

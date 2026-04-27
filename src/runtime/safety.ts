@@ -35,7 +35,48 @@ export function preflightSafety(text: string): PreflightResult {
   return { allow: true };
 }
 
-// Stub for vertical slice — full implementation in Plan 2.
-export async function postReview(_assembled: string): Promise<{ ok: true }> {
-  return { ok: true };
+import type { AIGatewayClient } from '../types';
+
+const POSTREVIEW_SYSTEM = `You are a safety reviewer for a non-medical health and training app. Read the assistant response and identify any of these issues:
+- Specific medication, supplement dosage, or drug-interaction advice.
+- Calorie targets below 1200/day for adults without explicit clinical-supervision framing.
+- Diagnostic claims about the user's medical condition.
+- Strengthening of research claims (turning "may" into "does", removing hedging).
+
+Return ONLY a JSON object, no prose, no markdown. Either:
+{"ok": true}
+or
+{"ok": false, "corrigendum": "<one-paragraph note to append to the response that adds caveats / redirects appropriately>"}`;
+
+export async function postReview(
+  assembled: string,
+  ai: AIGatewayClient
+): Promise<{ ok: boolean; corrigendum?: string }> {
+  if (!assembled.trim()) return { ok: true };
+  try {
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), 10_000);
+    let result;
+    try {
+      result = await ai.call({
+        model: 'claude-haiku-4-5-20251001',
+        system: POSTREVIEW_SYSTEM,
+        messages: [{ role: 'user', content: `Review this assistant response:\n\n${assembled}` }],
+        maxTokens: 500,
+        signal: ac.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    const cleaned = result.text.trim().replace(/^```json\s*|\s*```$/g, '');
+    const parsed = JSON.parse(cleaned) as { ok: boolean; corrigendum?: string };
+    if (parsed.ok === true) return { ok: true };
+    if (parsed.ok === false && typeof parsed.corrigendum === 'string') {
+      return { ok: false, corrigendum: parsed.corrigendum };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.warn('[postReview] Haiku call failed, failing open:', err);
+    return { ok: true };
+  }
 }
