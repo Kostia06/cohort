@@ -640,3 +640,24 @@ flutter run
 - **No charts / sparklines** — just numbers.
 - **No streaks / averages** — derive in a future plan.
 - **Timezone uses the user's stored timezone** — doesn't reflect travel.
+
+---
+
+## After Plan 16: workout set logging
+
+54. **Open a planned workout from Today.**
+    The detail screen now fetches the workout + any prior sets via `GET /v1/workouts/:id`.
+
+55. **Add a set:**
+    Type "squat" + 5 reps + 100 kg + RPE 7. Tap "Add set". The set list grows by one. The exercise field stays filled to make logging multiple sets of the same lift fast.
+
+56. **Mark complete:** flow unchanged — flips status to 'logged', pops, refreshes.
+
+57. **Cross-user 403:** other-user's workout returns 403 on both GET and POST /sets.
+
+## Plan 16 known limitations
+
+- **No edit / delete sets** from UI — manual D1 only.
+- **No exercise dictionary** — free-form text.
+- **No timer / rest tracking.**
+- **No per-set RPE charts** — sparkline / progressive overload is a future plan.

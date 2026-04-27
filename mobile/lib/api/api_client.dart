@@ -116,6 +116,43 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> fetchWorkout(String workoutId) async {
+    final uri = Uri.parse('$baseUrl/v1/workouts/$workoutId');
+    final req = await _http.getUrl(uri);
+    req.headers.set('Authorization', 'Bearer $jwt');
+    final resp = await req.close();
+    final body = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('fetchWorkout ${resp.statusCode}: $body');
+    }
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
+  Future<void> addWorkoutSet({
+    required String workoutId,
+    required String exercise,
+    int? reps,
+    double? weightKg,
+    int? rpe,
+    String? notes,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/workouts/$workoutId/sets');
+    final r = await _http.postUrl(uri);
+    r.headers.set('Authorization', 'Bearer $jwt');
+    r.headers.set('Content-Type', 'application/json');
+    final body = <String, dynamic>{'exercise': exercise};
+    if (reps != null) body['reps'] = reps;
+    if (weightKg != null) body['weight_kg'] = weightKg;
+    if (rpe != null) body['rpe'] = rpe;
+    if (notes != null && notes.isNotEmpty) body['notes'] = notes;
+    r.add(utf8.encode(jsonEncode(body)));
+    final resp = await r.close();
+    final respBody = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('addSet ${resp.statusCode}: $respBody');
+    }
+  }
+
   Future<Map<String, dynamic>> fetchRecentStats({int days = 7}) async {
     final uri = Uri.parse('$baseUrl/v1/stats/recent?days=$days');
     final req = await _http.getUrl(uri);
