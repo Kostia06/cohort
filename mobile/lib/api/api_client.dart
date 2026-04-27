@@ -116,6 +116,36 @@ class ApiClient {
     }
   }
 
+  Future<String> logMeal({
+    required String name,
+    int? kcal,
+    double? proteinG,
+    double? carbsG,
+    double? fatG,
+    String? notes,
+    int? eatenAt,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/meals');
+    final req = await _http.postUrl(uri);
+    req.headers.set('Authorization', 'Bearer $jwt');
+    req.headers.set('Content-Type', 'application/json');
+    final payload = <String, dynamic>{'name': name};
+    if (kcal != null) payload['kcal'] = kcal;
+    if (proteinG != null) payload['protein_g'] = proteinG;
+    if (carbsG != null) payload['carbs_g'] = carbsG;
+    if (fatG != null) payload['fat_g'] = fatG;
+    if (notes != null) payload['notes'] = notes;
+    if (eatenAt != null) payload['eaten_at'] = eatenAt;
+    req.add(utf8.encode(jsonEncode(payload)));
+    final resp = await req.close();
+    final body = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('logMeal ${resp.statusCode}: $body');
+    }
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    return json['meal_id'] as String;
+  }
+
   void close() => _http.close(force: true);
 }
 

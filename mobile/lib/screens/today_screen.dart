@@ -4,6 +4,7 @@ import '../health/auto_sync_service.dart';
 import '../state/auto_sync_controller.dart';
 import '../state/settings_controller.dart';
 import '../state/today_controller.dart';
+import 'log_meal_screen.dart';
 import 'workout_detail_screen.dart';
 
 class TodayScreen extends StatefulWidget {
@@ -241,7 +242,24 @@ class _TodayScreenState extends State<TodayScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Recent meals (24h)', style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Text('Recent meals (24h)', style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => LogMealScreen(settings: widget.settings),
+                      ),
+                    );
+                    if (result == true) _controller.refresh();
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Log'),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             if (meals.isEmpty) const Text('No meals logged in the last 24 hours.'),
             ...meals.map((m) {
