@@ -605,3 +605,19 @@ flutter run
 - **No undo from the UI** — once marked, only a manual D1 update reverts. (Server-side, you can PATCH back to 'planned' if needed.)
 - **No timer / ongoing-workout state** — start time isn't tracked.
 - **No visible "logged" workouts on Today** — the Today aggregation filters to status='planned'. Logged workouts only show up via D1 / chat queries.
+
+## After Plan 14: log meal UI
+
+47. **Log a meal:**
+    From the Today tab, tap "Log" in the top-right of the Recent meals card. Enter a name + optional kcal/macros/notes. Tap "Log meal". The screen pops, the meals list refreshes with the new entry.
+
+48. **Validation:** submitting with empty name shows an inline error and does not POST.
+
+49. **Source attribution:** server stamps `source='user'` on these rows. Compare to `source='agent'` for meals the agent logged via `log_meal` tool, and `source='manual'` (legacy default for `propose_workout`-derived meals if any).
+
+## Plan 14 known limitations
+
+- **No edit / delete from UI** — manual D1 only.
+- **Macros are free-form** — no validation that kcal ≈ 4*P + 4*C + 9*F.
+- **No favorites / templates / recent picks**.
+- **eaten_at is always now** (no time picker yet).
