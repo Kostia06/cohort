@@ -431,3 +431,49 @@ wrangler d1 execute cohort --remote --file=/tmp/seed.sql
 | Auth | X-User-Id | X-User-Id | X-User-Id | X-User-Id | JWT (HS256) | JWT (HS256) | JWT (HS256) |
 | `search_research` | ✗ | ✗ | stub | stub | stub | **real** | real |
 | `search_groceries` | ✗ | ✗ | stub | stub | stub | stub | **real (Calgary v1)** |
+
+---
+
+## After Plan 8: HealthKit sync + readiness scoring
+
+27. **Sync a daily sample (calibrating phase):**
+    ```
+    curl -X POST https://<your-api>.workers.dev/v1/healthkit/sync \
+      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+      -d '{"date":"2026-04-25","hrv_sdnn_ms":50,"rhr_bpm":60,"sleep_minutes":480,"time_in_bed_minutes":510}'
+    ```
+    Expected: 200 with `{readiness: {status: 'calibrating', score: null, ...}}` for the first 14 days.
+
+28. **Sync 14+ days then check readiness:**
+    Backfill 14 days of samples (script or repeated curls), then sync today.
+    Expected: 200 with `{readiness: {status: 'ready', score: <0..100>, band: 'rest'|'easy'|'normal'|'green', components: {...}, reasons: [...]}}`.
+
+29. **Verify `get_readiness` tool now returns data:**
+    ```
+    curl -N -X POST https://<your-api>.workers.dev/v1/chat/th1 \
+      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+      -d '{"message":"what is my readiness today?"}'
+    ```
+    The orchestrator calls `get_readiness`; it now returns the latest `readiness_daily` row and the model can talk about the band + reasons.
+
+30. **Integration with batch turn:**
+    The 5am cron-fired batch turn calls `get_readiness` as part of generating tomorrow's plan. With real readiness data, the agent can dial volume up/down based on band.
+
+## Plan 8 known limitations (deferred)
+
+- **No Flutter HealthKit reader** — server endpoint is ready; iOS-side code is its own project.
+- **No multi-device dedup** — assume one source of truth per (user_id, date). Multiple uploads on the same date overwrite.
+- **No backfill endpoint** — bulk historical sync is a single-row API that the client must loop over. A `/sync/batch` taking an array could come later.
+- **Age-based target only** — sleep target is 540 min for under-18, 480 otherwise. No personalization or sleep-need detection.
+
+## Final P1 → P8 capability matrix
+
+| Capability | P1-P5 | P6 | P7 | P8 |
+|---|---|---|---|---|
+| Streaming chat | ✓ | ✓ | ✓ | ✓ |
+| 9 tools | ✓ | ✓ | ✓ | ✓ |
+| Full hardening (retry, cancel, replay, cap, batch, janitor, JWT) | ✓ | ✓ | ✓ | ✓ |
+| `search_research` | stub→**real** | real | real | real |
+| `search_groceries` | stub | stub | **real** | real |
+| `get_readiness` | always null | always null | always null | **real (after 14d calibration)** |
+| HealthKit sync endpoint | ✗ | ✗ | ✗ | ✓ |

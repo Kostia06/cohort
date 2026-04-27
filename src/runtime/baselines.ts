@@ -18,13 +18,15 @@ export interface Baseline {
   mad: number;
 }
 
-export function computeBaseline<T extends Record<string, number | null | undefined>>(
-  samples: T[],
-  metric: keyof T
+export function computeBaseline(
+  samples: Array<Record<string, number | null | undefined>>,
+  metric: string
 ): Baseline | null {
-  const values = samples
-    .map((s) => s[metric])
-    .filter((v): v is number => typeof v === 'number');
+  const raw = samples.map((s) => s[metric]);
+  const values: number[] = [];
+  for (const v of raw) {
+    if (typeof v === 'number') values.push(v);
+  }
   if (values.length < MIN_SAMPLES_FOR_BASELINE) return null;
   const med = median(values);
   if (med === null) return null;
