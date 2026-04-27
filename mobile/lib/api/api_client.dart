@@ -195,6 +195,31 @@ class ApiClient {
     return json['meal_id'] as String;
   }
 
+  Future<Map<String, dynamic>> getMe() async {
+    final uri = Uri.parse('$baseUrl/v1/me');
+    final req = await _http.getUrl(uri);
+    req.headers.set('Authorization', 'Bearer $jwt');
+    final resp = await req.close();
+    final body = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('getMe ${resp.statusCode}: $body');
+    }
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
+  Future<void> updateMe(Map<String, dynamic> patch) async {
+    final uri = Uri.parse('$baseUrl/v1/me');
+    final r = await _http.patchUrl(uri);
+    r.headers.set('Authorization', 'Bearer $jwt');
+    r.headers.set('Content-Type', 'application/json');
+    r.add(utf8.encode(jsonEncode(patch)));
+    final resp = await r.close();
+    final body = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw HttpException('updateMe ${resp.statusCode}: $body');
+    }
+  }
+
   void close() => _http.close(force: true);
 }
 

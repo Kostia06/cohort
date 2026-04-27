@@ -8,6 +8,7 @@ import { handlePlansToday } from './plans-today';
 import { handleWorkoutUpdate } from './workouts-update';
 import { handleStatsRecent } from './stats-recent';
 import { handleCreateSet, handleGetWorkout } from './workout-sets';
+import { handleMeGet, handleMeUpdate } from './me';
 export { UserAgentDO } from '../do/user-agent-do';
 
 const JANITOR_CRON = '*/5 * * * *';
@@ -125,6 +126,21 @@ export default {
       const timezone = userRow?.timezone ?? 'UTC';
       const result = await handleStatsRecent({ db: env.DB, userId, now: Date.now(), days, timezone });
       return Response.json(result);
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/me') {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const r = await handleMeGet({ db: env.DB, userId: auth });
+      if (!r.ok) return Response.json({ error: r.reason ?? 'failed' }, { status: r.status ?? 500 });
+      return Response.json(r.profile);
+    }
+    if (req.method === 'PATCH' && url.pathname === '/v1/me') {
+      const auth = await authenticateRequest(req, env);
+      if (auth instanceof Response) return auth;
+      const body = await req.json<any>();
+      const r = await handleMeUpdate({ db: env.DB, userId: auth, input: body });
+      if (!r.ok) return Response.json({ error: r.reason ?? 'failed' }, { status: r.status ?? 500 });
+      return Response.json({ ok: true });
     }
     if (req.method === 'POST' && url.pathname === '/v1/healthkit/sync') {
       const auth = await authenticateRequest(req, env);

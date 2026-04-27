@@ -661,3 +661,30 @@ flutter run
 - **No exercise dictionary** — free-form text.
 - **No timer / rest tracking.**
 - **No per-set RPE charts** — sparkline / progressive overload is a future plan.
+
+---
+
+## After Plan 17: profile edit
+
+58. **Open Profile:** Settings → Edit profile.
+    Form populates with the current profile (display name, timezone, age, dietary pattern, allergies, dislikes, daily cost cap).
+
+59. **Edit + save:**
+    Change display name, tap Save. Server PATCHes the row, the form re-loads with the new value, snackbar says "Saved". Allergies / dislikes are comma-separated text fields → stored as JSON arrays.
+
+60. **Validation:**
+    - Empty display name → 400 + error banner.
+    - Invalid timezone → 400.
+    - Dietary pattern not in {omnivore, vegetarian, vegan, pescatarian, keto} → 400.
+    - daily_cost_cap_cents < 0 or > 100000 → 400.
+
+61. **Cross-feature integration:**
+    - Changing timezone affects calendar-day cost cap window (Plan 4) and the History view (Plan 15).
+    - Changing dietary pattern is read by the agent's chat tools (e.g., when generating tomorrow's plan).
+
+## Plan 17 known limitations
+
+- **No optimistic UI** — saves are blocking with a Save button.
+- **No allergies / dislikes autocomplete.**
+- **No partial-failure handling on multi-field saves** (server is single-statement so it's atomic, but if validation rejects, the whole patch is rejected).
+- **No data-export / delete account** flows.
